@@ -89,6 +89,7 @@ a.btn{text-decoration:none;display:inline-block}
 
 <div class="panel" id="pc"><div class="ph"><span id="pcT">Nuevo caso</span><button onclick="closeAll()">Cerrar</button></div>
 <div class="pb">
+<div id="whBox"><label>Pegar datos de WeHelp</label><textarea id="wh" placeholder="Copiá la ficha del socio en WeHelp y pegala acá"></textarea><button onclick="pegarWH()" style="margin-top:6px">Completar con estos datos</button><div class="help">Se completa el caso solo. Revisá y guardá. El DNI no se guarda.</div></div>
 <div id="sedeBox"><label>Sede</label><select id="sede"></select></div>
 <h4>Encuesta</h4>
 <div class="g2"><div><label>Fecha de encuesta</label><input type="date" id="fecha"></div><div><label>Cant. de encuestas</label><input type="number" id="cant" min="1" value="1"></div></div>
@@ -221,7 +222,8 @@ function shade(on){$("shade").className="shade"+(on?" open":"")}
 function closeAll(){["pc","pd","ps"].forEach(function(i){$(i).className="panel"});shade(false)}
 var F=["fecha","cant","porque","reclamo","socio","nsocio","cel","mail","estado","fmejora","mejora","notas","aviso","p2","f2","zona","frecontacto","recontacto"];
 function openCase(id){cur=id||null;var c=S.cases.filter(function(x){return x.id===id})[0]||{};
- $("pcT").textContent=id?"Caso de "+(c.socio||""):"Nuevo caso";
+ $("whBox").style.display=id?"none":"block";$("wh").value="";
+$("pcT").textContent=id?"Caso de "+(c.socio||""):"Nuevo caso";
  F.forEach(function(f){var v=c[f];if(v==null)v=(f==="cant"?1:f==="estado"?"Pendiente":f==="aviso"?"No":f==="fecha"&&!id?new Date().toISOString().slice(0,10):"");$(f).value=v});
  $("zona").innerHTML='<option value="">Elegir…</option>'+ZONAS.map(function(z){return'<option>'+z+'</option>'}).join("");$("zona").value=c.zona||"";
  $("probTxt").textContent=c.fecha?"2ª encuesta probable alrededor del "+fmt(probable(c))+" (promedio "+avg().d+" días"+(avg().real?", calculado con "+avg().n+" casos":", valor inicial")+"). Recontactalo antes.":"";
@@ -258,6 +260,25 @@ function openStats(){var L=visibles(),a=avg();
  if(me.rol==="regional")h+=tabla("Por sede",grp(L,"sede"));
  h+='<div class="help" style="margin-top:12px">Mejorados: casos con estado Mejorado. Avisados: de los mejorados, a cuántos se les avisó. Días a mejora: promedio desde la encuesta hasta la mejora. Subieron: de los que respondieron la 2ª encuesta, cuántos puntuaron más que la primera vez.</div>';
  $("statsBody").innerHTML=h;$("ps").className="panel open";shade(true)}
+function zonaDe(n){n=n.toLowerCase();if(/limpieza|vestuario/.test(n))return"Limpieza";if(/instalaciones|equipamiento|m[aá]quinas/.test(n))return"Mantenimiento propio";if(/accesorios|material/.test(n))return"Materiales";if(/musculaci/.test(n))return"Servicio musculación";if(/guardavida|pileta|natac/.test(n))return"Servicio guardavidas";return"Otro"}
+function pegarWH(){var t=$("wh").value,L=t.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);
+ if(L.length<5){toast("Pegá primero los datos de WeHelp");return}
+ function after(l){var i=L.findIndex(function(x){return x.toLowerCase()===l.toLowerCase()});return i>=0?(L[i+1]||""):""}
+ var m=t.match(/(\d{1,2})\s*-\s*(Detractor|Pasivo|Promotor)/i);if(!m){toast("No encontré el puntaje (ej.: 5-Detractor)");return}
+ sc=+m[1];drawPts();
+ $("socio").value=after("Nombre")||L[0];
+ var em=t.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);$("mail").value=em?em[0]:"";
+ $("cel").value=after("Teléfono");$("nsocio").value=after("Código identificador");
+ var f=after("Respondida en").match(/(\d{2})\/(\d{2})\/(\d{4})/);if(f)$("fecha").value=f[3]+"-"+f[2]+"-"+f[1];
+ var a=L.indexOf("Puntos de contacto"),b=L.indexOf("Problemas"),pc=[];
+ if(a>=0&&b>a)for(var i=a+1;i+1<b;i+=2){var v=+L[i+1];if(!isNaN(v))pc.push({n:L[i].replace(/\(.*?\)/g,"").trim(),v:v})}
+ var bajos=pc.filter(function(x){return x.v<=6}).sort(function(x,y){return x.v-y.v});
+ var pb=[],j=L.indexOf("Problemas"),k=L.indexOf("Preguntas");if(j>=0&&k>j)L.slice(j+1,k).forEach(function(x){if(x.indexOf("¿Tuvo problema?")<0)pb.push(x)});
+ var serv=after("¿Qué servicio desea evaluar?");
+ $("reclamo").value=(serv?"Servicio evaluado: "+serv+". ":"")+(bajos.length?"Puntos bajos: "+bajos.map(function(x){return x.n+" ("+x.v+")"}).join(", ")+". ":"")+pb.join(" ");
+ if(bajos.length)$("zona").value=zonaDe(bajos[0].n);
+ if(me.rol==="regional"){var sd=L.join(" ").toLowerCase();S.sedes.forEach(function(x){if(sd.indexOf(x.toLowerCase())>=0)$("sede").value=x})}
+ prev();toast("Datos cargados. Revisá y guardá")}
 function openData(){$("pd").className="panel open";shade(true)}
 function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas,c.zona,fmt(c.frecontacto),c.recontacto].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
  if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
