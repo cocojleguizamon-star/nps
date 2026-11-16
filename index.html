@@ -62,6 +62,7 @@ a.btn{text-decoration:none;display:inline-block}
 #login button{width:100%;margin-top:12px}
 @media(max-width:600px){.g2{grid-template-columns:1fr}.pts{grid-template-columns:repeat(6,1fr)}}
 </style></head><body>
+
 <div id="login" hidden><div class="box">
 <div class="logo">MEGATLON</div><p>Seguimiento NPS · pasivos y detractores</p>
 <label>Mail de Megatlon</label><input id="lMail" type="email" autocomplete="username">
@@ -74,6 +75,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div id="app" hidden>
 <header>
 <div class="logo">MEGATLON</div><div class="sede" id="sedeTxt"></div><div class="sp"></div>
+<button onclick="openStats()">Estadísticas</button>
 <button onclick="openData()">Datos y Excel</button>
 <button class="pri" onclick="openCase()">+ Nuevo caso</button>
 <button onclick="salir()">Salir</button>
@@ -81,7 +83,7 @@ a.btn{text-decoration:none;display:inline-block}
 <main>
 <div class="kpis" id="kpis"></div>
 <div class="bar"><input id="q" placeholder="Buscar socio, mail o reclamo…" oninput="render()"><select id="fSede" onchange="render()" hidden></select></div>
-<div class="tablewrap"><table><thead><tr><th>Puntaje</th><th>Socio</th><th class="cSede">Sede</th><th>Tipo</th><th>Encuesta</th><th>Días</th><th>Estado</th><th>Alerta</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No hay casos para mostrar. Tocá <b>+ Nuevo caso</b> para cargar el primero.</div></div>
+<div class="tablewrap"><table><thead><tr><th>Puntaje</th><th>Socio</th><th class="cSede">Sede</th><th>Tipo</th><th>Encuesta</th><th>Zona</th><th>2ª probable</th><th>Estado</th><th>Alerta</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No hay casos para mostrar. Tocá <b>+ Nuevo caso</b> para cargar el primero.</div></div>
 </main>
 <div class="shade" id="shade" onclick="closeAll()"></div>
 
@@ -92,6 +94,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="g2"><div><label>Fecha de encuesta</label><input type="date" id="fecha"></div><div><label>Cant. de encuestas</label><input type="number" id="cant" min="1" value="1"></div></div>
 <label>Puntaje que puso (0–10)</label><div class="pts" id="pts"></div>
 <label>Por qué puntuó así</label><textarea id="porque"></textarea>
+<label>Zona de trabajo</label><select id="zona"><option value="">Elegir…</option></select>
 <label>Reclamo / motivo</label><textarea id="reclamo"></textarea>
 <h4>Socio</h4>
 <label>Nombre y apellido</label><input id="socio">
@@ -108,6 +111,10 @@ a.btn{text-decoration:none;display:inline-block}
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn pri" id="bMail" target="_blank" rel="noopener">Abrir en Outlook</a><a class="btn" id="bWa" target="_blank" rel="noopener">Abrir WhatsApp</a><button onclick="copyMsg()">Copiar texto</button></div>
 <div class="help">El mensaje queda listo y lo enviás vos. Si querés sumar foto, adjuntala al enviar.</div>
 <label>¿Ya le avisaste?</label><select id="aviso"><option>No</option><option>Sí</option></select>
+<h4>Recontacto antes de la 2ª encuesta</h4>
+<div class="help" id="probTxt"></div>
+<div class="g2"><div><label>Fecha de recontacto</label><input type="date" id="frecontacto"></div></div>
+<label>Qué te dijo el socio</label><textarea id="recontacto"></textarea>
 <h4>Segunda encuesta</h4>
 <div class="g2"><div><label>Puntaje 2ª encuesta</label><input type="number" id="p2" min="0" max="10"></div><div><label>Fecha 2ª encuesta</label><input type="date" id="f2"></div></div>
 </div>
@@ -120,6 +127,8 @@ a.btn{text-decoration:none;display:inline-block}
 <p>Copia los casos que ves en pantalla. Pegalos en el Excel, en la primera fila libre.</p>
 <button class="pri" onclick="copyTSV()">Copiar casos para el Excel</button>
 </div></div>
+<div class="panel" id="ps" style="width:min(820px,100%)"><div class="ph"><span>Estadísticas de mejora</span><button onclick="closeAll()">Cerrar</button></div>
+<div class="pb" id="statsBody"></div></div>
 <div class="toast" id="toast"></div>
 </div>
 
@@ -127,7 +136,8 @@ a.btn{text-decoration:none;display:inline-block}
 <script>
 var SUPABASE_URL="https://gwhjbpcrqednswqxigpl.supabase.co";
 var SUPABASE_KEY="sb_publishable_UU403qAma0QBKGF9TjRHBQ_9IhIwt48";
-var CFG={p1:2,p2:3,p3:7,s1:120,s2:150,s3:240};
+var CFG={p1:2,p2:3,p3:7,def:150,minN:10,antes:14,prox:45,tarde:30};
+var ZONAS=["Materiales","Limpieza","Mantenimiento propio","Servicio musculación","Servicio guardavidas","Otro"];
 var $=function(i){return document.getElementById(i)};
 var sb=null,me=null,S={cases:[],sedes:[]},filt="",cur=null,sc=null,saving=false;
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(function(){e.style.display="none"},2600)}
@@ -145,9 +155,13 @@ function alerta(c){var d=days(c.fecha);if(d===null)return"";
  if(c.estado==="Mejorado"&&c.aviso!=="Sí")return"Falta avisar al socio";
  if(c.estado!=="Mejorado"&&d>=plazo(+c.puntaje))return"Vencido";
  if(hasP2(c))return"2ª encuesta respondida";
- if(d>=CFG.s3)return"2ª encuesta atrasada";if(d>=CFG.s2)return"2ª encuesta inminente";if(d>=CFG.s1)return"2ª encuesta próxima";return"En curso"}
-function acls(a){return a==="Vencido"?"v":a==="Falta avisar al socio"?"f":(a.indexOf("2ª encuesta")===0&&a.indexOf("respondida")<0)?"n":"o"}
-function is2(a){return a==="2ª encuesta próxima"||a==="2ª encuesta inminente"||a==="2ª encuesta atrasada"}
+ if(c.frecontacto)return"Recontactado";
+ var m=avg().d;if(d>=m+CFG.tarde)return"2ª encuesta atrasada";if(d>=m-CFG.antes)return"Recontactar ahora";if(d>=m-CFG.prox)return"2ª encuesta próxima";return"En curso"}
+function avg(){var a=[];S.cases.forEach(function(c){if(hasP2(c)&&c.f2&&c.fecha){var x=days(c.fecha)-days(c.f2);if(x>0)a.push(x)}});
+ if(a.length>=CFG.minN)return{d:Math.round(a.reduce(function(x,y){return x+y},0)/a.length),n:a.length,real:true};return{d:CFG.def,n:a.length,real:false}}
+function probable(c){if(!c.fecha)return"";var d=new Date(c.fecha+"T00:00:00");d.setDate(d.getDate()+avg().d);return d.toISOString().slice(0,10)}
+function acls(a){return a==="Vencido"||a==="Recontactar ahora"?"v":a==="Falta avisar al socio"?"f":(a==="2ª encuesta próxima"||a==="2ª encuesta atrasada")?"n":"o"}
+function is2(a){return a==="2ª encuesta próxima"||a==="Recontactar ahora"||a==="2ª encuesta atrasada"}
 
 function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lErr").textContent=msg||""}
 async function init(){
@@ -181,14 +195,14 @@ function visibles(){var fs=$("fSede").value;return S.cases.filter(function(c){re
 function render(){
  var base=visibles(),list=base.map(function(c){return{c:c,a:alerta(c)}}),cnt={v:0,f:0,s:0,p:0};
  list.forEach(function(x){if(x.a==="Vencido")cnt.v++;if(x.a==="Falta avisar al socio")cnt.f++;if(is2(x.a))cnt.s++;if(x.a==="Ya es promotor")cnt.p++});
- var K=[["","Todos",base.length],["Vencido","Vencidos",cnt.v],["Falta avisar al socio","Falta avisar",cnt.f],["2ª","2ª encuesta",cnt.s],["Ya es promotor","Promotores",cnt.p]];
+ var K=[["","Todos",base.length],["Vencido","Vencidos",cnt.v],["Falta avisar al socio","Falta avisar",cnt.f],["2ª","Recontactar",cnt.s],["Ya es promotor","Promotores",cnt.p]];
  $("kpis").innerHTML=K.map(function(k){return'<div class="kpi'+(filt===k[0]?" on":"")+'" onclick="setF(\''+k[0]+'\')"><b>'+k[2]+'</b><span>'+k[1]+'</span></div>'}).join("");
  var q=$("q").value.toLowerCase();
  list=list.filter(function(x){var c=x.c;if(filt==="2ª"){if(!is2(x.a))return false}else if(filt&&x.a!==filt)return false;
   return!q||((c.socio||"")+" "+(c.mail||"")+" "+(c.reclamo||"")+" "+(c.porque||"")).toLowerCase().indexOf(q)>=0});
  var rank={"Vencido":0,"Falta avisar al socio":1};list.sort(function(a,b){var ra=rank[a.a]!=null?rank[a.a]:2,rb=rank[b.a]!=null?rank[b.a]:2;return ra-rb||(b.c.fecha||"").localeCompare(a.c.fecha||"")});
  var reg=me&&me.rol==="regional";
- $("rows").innerHTML=list.map(function(x){var c=x.c,p=+c.puntaje;return'<tr class="row" onclick="openCase(\''+c.id+'\')"><td><span class="sc '+cls(p)+'">'+p+'</span></td><td><b>'+esc(c.socio)+'</b><div class="mute">'+esc((c.reclamo||c.porque||"").slice(0,70))+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(c.sede)+'</td><td>'+tipo(p)+'</td><td>'+fmt(c.fecha)+'</td><td>'+days(c.fecha)+'</td><td>'+esc(c.estado)+'</td><td><span class="al '+acls(x.a)+'">'+esc(x.a)+'</span></td></tr>'}).join("");
+ $("rows").innerHTML=list.map(function(x){var c=x.c,p=+c.puntaje;return'<tr class="row" onclick="openCase(\''+c.id+'\')"><td><span class="sc '+cls(p)+'">'+p+'</span></td><td><b>'+esc(c.socio)+'</b><div class="mute">'+esc((c.reclamo||c.porque||"").slice(0,70))+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(c.sede)+'</td><td>'+tipo(p)+'</td><td>'+fmt(c.fecha)+'</td><td>'+esc(c.zona||"")+'</td><td>'+fmt(probable(c))+'</td><td>'+esc(c.estado)+'</td><td><span class="al '+acls(x.a)+'">'+esc(x.a)+'</span></td></tr>'}).join("");
  $("empty").hidden=list.length>0;window._list=list}
 function setF(f){filt=(filt===f?"":f);render()}
 
@@ -204,11 +218,13 @@ function prev(){if(!me)return;var m=msgs();$("msgPrev").textContent=m.mail;var m
 function copy(t){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Copiado")},fb)}else fb();function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast("Copiado")}catch(e){toast("No se pudo copiar")}a.remove()}}
 function copyMsg(){copy(msgs().mail)}
 function shade(on){$("shade").className="shade"+(on?" open":"")}
-function closeAll(){["pc","pd"].forEach(function(i){$(i).className="panel"});shade(false)}
-var F=["fecha","cant","porque","reclamo","socio","nsocio","cel","mail","estado","fmejora","mejora","notas","aviso","p2","f2"];
+function closeAll(){["pc","pd","ps"].forEach(function(i){$(i).className="panel"});shade(false)}
+var F=["fecha","cant","porque","reclamo","socio","nsocio","cel","mail","estado","fmejora","mejora","notas","aviso","p2","f2","zona","frecontacto","recontacto"];
 function openCase(id){cur=id||null;var c=S.cases.filter(function(x){return x.id===id})[0]||{};
  $("pcT").textContent=id?"Caso de "+(c.socio||""):"Nuevo caso";
  F.forEach(function(f){var v=c[f];if(v==null)v=(f==="cant"?1:f==="estado"?"Pendiente":f==="aviso"?"No":f==="fecha"&&!id?new Date().toISOString().slice(0,10):"");$(f).value=v});
+ $("zona").innerHTML='<option value="">Elegir…</option>'+ZONAS.map(function(z){return'<option>'+z+'</option>'}).join("");$("zona").value=c.zona||"";
+ $("probTxt").textContent=c.fecha?"2ª encuesta probable alrededor del "+fmt(probable(c))+" (promedio "+avg().d+" días"+(avg().real?", calculado con "+avg().n+" casos":", valor inicial")+"). Recontactalo antes.":"";
  var reg=me.rol==="regional";$("sedeBox").style.display=reg?"block":"none";
  if(reg){$("sede").innerHTML=S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("");$("sede").value=c.sede||$("fSede").value||S.sedes[0]||""}
  else $("sede").innerHTML='<option>'+esc(me.sede)+'</option>';
@@ -218,7 +234,7 @@ function openCase(id){cur=id||null;var c=S.cases.filter(function(x){return x.id=
 async function save(){if(saving)return;
  if(!$("socio").value.trim()){toast("Falta el nombre del socio");return}if(sc===null){toast("Elegí el puntaje");return}if(!$("fecha").value){toast("Falta la fecha de encuesta");return}
  var row={sede:me.rol==="regional"?$("sede").value:me.sede,puntaje:sc};
- F.forEach(function(f){var v=$(f).value;if(["fmejora","f2","p2","cant"].indexOf(f)>=0)v=(v===""?null:(f==="p2"||f==="cant"?+v:v));row[f]=v});
+ F.forEach(function(f){var v=$(f).value;if(["fmejora","f2","frecontacto","p2","cant"].indexOf(f)>=0)v=(v===""?null:(f==="p2"||f==="cant"?+v:v));row[f]=v});
  if(!cur){row.estado="Pendiente";row.aviso="No"}
  saving=true;$("bSave").disabled=true;
  var r=cur?await sb.from("casos").update(row).eq("id",cur):await sb.from("casos").insert(row);
@@ -227,8 +243,23 @@ async function save(){if(saving)return;
  closeAll();await cargar();toast("Caso guardado")}
 async function del(){if(!cur)return;if(!confirm("¿Eliminar este caso? No se puede deshacer."))return;
  var r=await sb.from("casos").delete().eq("id",cur);if(r.error){toast("No se pudo eliminar");return}closeAll();await cargar()}
+function grp(list,key){var o={};list.forEach(function(c){var k=c[key]||"(sin zona)";(o[k]=o[k]||[]).push(c)});return o}
+function fila(k,cs){var mej=cs.filter(function(c){return c.estado==="Mejorado"}),ab=cs.filter(function(c){return c.estado!=="Mejorado"&&c.estado!=="Sin solución"}),ven=cs.filter(function(c){return alerta(c)==="Vencido"}),av=mej.filter(function(c){return c.aviso==="Sí"}),
+ t=mej.filter(function(c){return c.fmejora&&c.fecha}).map(function(c){return days(c.fecha)-days(c.fmejora)}),
+ d2=cs.filter(hasP2),sube=d2.filter(function(c){return+c.p2>+c.puntaje}),dif=d2.map(function(c){return+c.p2-+c.puntaje});
+ var pr=function(a){return a.length?(a.reduce(function(x,y){return x+y},0)/a.length):null};
+ return[k,cs.length,mej.length,ab.length,ven.length,mej.length?Math.round(av.length*100/mej.length)+"%":"-",t.length?pr(t).toFixed(1):"-",d2.length,d2.length?Math.round(sube.length*100/d2.length)+"%":"-",d2.length?(pr(dif)>0?"+":"")+pr(dif).toFixed(1):"-"]}
+function tabla(tit,o){var H=["",'Casos','Mejorados','Abiertos','Vencidos','Avisados','Días a mejora','Con 2ª enc.','Subieron','Suba prom.'];
+ var rows=Object.keys(o).sort().map(function(k){return fila(k,o[k])});
+ return'<h4>'+tit+'</h4><div class="tablewrap"><table style="min-width:620px"><thead><tr>'+H.map(function(h){return'<th>'+h+'</th>'}).join("")+'</tr></thead><tbody>'+rows.map(function(r){return'<tr>'+r.map(function(v,i){return i?'<td>'+v+'</td>':'<td><b>'+esc(v)+'</b></td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>'}
+function openStats(){var L=visibles(),a=avg();
+ var h='<p><b>Promedio entre 1ª y 2ª encuesta:</b> '+a.d+' días '+(a.real?'(calculado con '+a.n+' casos)':'(valor inicial; se calcula solo cuando haya '+CFG.minN+' casos con 2ª encuesta, hoy hay '+a.n+')')+'</p>';
+ h+=tabla("Por zona de trabajo",grp(L,"zona"));
+ if(me.rol==="regional")h+=tabla("Por sede",grp(L,"sede"));
+ h+='<div class="help" style="margin-top:12px">Mejorados: casos con estado Mejorado. Avisados: de los mejorados, a cuántos se les avisó. Días a mejora: promedio desde la encuesta hasta la mejora. Subieron: de los que respondieron la 2ª encuesta, cuántos puntuaron más que la primera vez.</div>';
+ $("statsBody").innerHTML=h;$("ps").className="panel open";shade(true)}
 function openData(){$("pd").className="panel open";shade(true)}
-function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
+function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas,c.zona,fmt(c.frecontacto),c.recontacto].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
  if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
 init();
 </script></body></html>
