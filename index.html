@@ -2,6 +2,7 @@
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Seguimiento NPS Megatlon</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#000000">
 <style>
 :root{--bg:#f4f4f4;--card:#fff;--ink:#111;--mute:#6b6b6b;--line:#e2e2e2;--r0:#c00000;--r1:#f4b6b6;--y:#ffe066;--g:#bfbfbf}
 *{box-sizing:border-box}
@@ -75,6 +76,7 @@ a.btn{text-decoration:none;display:inline-block}
 <div id="app" hidden>
 <header>
 <div class="logo">MEGATLON</div><div class="sede" id="sedeTxt"></div><div class="sp"></div>
+<button id="bPush" onclick="activarAvisos()" hidden>Activar avisos</button>
 <button onclick="openStats()">Estadísticas</button>
 <button onclick="openData()">Datos y Excel</button>
 <button class="pri" onclick="openCase()">+ Nuevo caso</button>
@@ -138,6 +140,7 @@ a.btn{text-decoration:none;display:inline-block}
 var SUPABASE_URL="https://gwhjbpcrqednswqxigpl.supabase.co";
 var SUPABASE_KEY="sb_publishable_UU403qAma0QBKGF9TjRHBQ_9IhIwt48";
 var CFG={p1:2,p2:3,p3:7,def:150,minN:10,antes:14,prox:45,tarde:30};
+var VAPID="BLUUXXIDAYjO0tagmz5Xs3G4HkzTsdmd_eLWl2ewp1nYhNoZVd9hbW6Q5HzO6_MLsqogazk_9RK-WtDDKF1EG_I";
 var ZONAS=["Materiales","Limpieza","Mantenimiento propio","Servicio musculación","Servicio guardavidas","Otro"];
 var $=function(i){return document.getElementById(i)};
 var sb=null,me=null,S={cases:[],sedes:[]},filt="",cur=null,sc=null,saving=false;
@@ -188,7 +191,7 @@ async function abrirApp(){
  $("sedeTxt").textContent=me.rol==="regional"?"Vista regional":"Sede "+me.sede;
  if(me.rol==="regional"){$("fSede").hidden=false;$("fSede").innerHTML='<option value="">Todas las sedes</option>'+S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")}
  document.querySelectorAll(".cSede").forEach(function(e){e.style.display=me.rol==="regional"?"":"none"});
- await cargar()}
+ await cargar();initPush()}
 async function cargar(){var r=await sb.from("casos").select("*").order("fecha",{ascending:false});
  if(r.error){toast("No se pudieron cargar los casos");return}S.cases=r.data||[];render()}
 
@@ -279,6 +282,20 @@ function pegarWH(){var t=$("wh").value,L=t.split(/\r?\n/).map(function(x){return
  if(bajos.length)$("zona").value=zonaDe(bajos[0].n);
  if(me.rol==="regional"){var sd=L.join(" ").toLowerCase();S.sedes.forEach(function(x){if(sd.indexOf(x.toLowerCase())>=0)$("sede").value=x})}
  prev();toast("Datos cargados. Revisá y guardá")}
+function b64u(s){var p="=".repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+async function guardarSub(s){var j=s.toJSON();return sb.from("push_subs").upsert({endpoint:j.endpoint,email:me.email.toLowerCase(),sub:j},{onConflict:"endpoint"})}
+function iconoApp(){var c=document.createElement("canvas");c.width=c.height=180;var x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,180,180);x.fillStyle="#fff";x.font="bold 108px Arial,Helvetica,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("M",90,95);var l=document.createElement("link");l.rel="apple-touch-icon";l.href=c.toDataURL("image/png");document.head.appendChild(l)}
+async function initPush(){iconoApp();if(!("serviceWorker" in navigator))return;
+ try{await navigator.serviceWorker.register("sw.js")}catch(e){return}
+ $("bPush").hidden=false;
+ if("PushManager" in window&&window.Notification&&Notification.permission==="granted"){var reg=await navigator.serviceWorker.ready,s=await reg.pushManager.getSubscription();if(s){$("bPush").textContent="Avisos activados ✓";guardarSub(s)}}}
+async function activarAvisos(){
+ if(!("PushManager" in window)||!window.Notification){toast("En iPhone: primero agregá la app a la pantalla de inicio (Compartir > Agregar a inicio) y abrila desde ahí");return}
+ var p=await Notification.requestPermission();if(p!=="granted"){toast("Permití las notificaciones en el navegador para activar los avisos");return}
+ var reg=await navigator.serviceWorker.ready,s=await reg.pushManager.getSubscription();
+ if(!s)s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
+ var r=await guardarSub(s);if(r.error){toast("No se pudo activar: "+r.error.message);return}
+ $("bPush").textContent="Avisos activados ✓";reg.showNotification("Megatlon NPS",{body:"Listo: te avisamos cuando haya socios para recontactar."})}
 function openData(){$("pd").className="panel open";shade(true)}
 function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas,c.zona,fmt(c.frecontacto),c.recontacto].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
  if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
