@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seguimiento NPS Megatlon</title>
+<style>
+:root{--bg:#f4f4f4;--card:#fff;--ink:#111;--mute:#6b6b6b;--line:#e2e2e2;--r0:#c00000;--r1:#f4b6b6;--y:#ffe066;--g:#bfbfbf}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 Arial,Helvetica,sans-serif}
+header{background:#000;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-weight:900;letter-spacing:.28em;font-size:20px}
+.sede{color:#bbb;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+header .sp{flex:1}
+button,.btn{font:inherit;cursor:pointer;border:1px solid #000;background:#fff;color:#000;padding:8px 14px;border-radius:4px;font-weight:700}
+button.pri,.btn.pri{background:#000;color:#fff}
+header button{border-color:#fff;background:transparent;color:#fff}
+header button.pri{background:#fff;color:#000}
+button:hover{opacity:.85}
+main{max-width:1200px;margin:0 auto;padding:18px 16px 60px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-left:5px solid #000;padding:10px 12px;cursor:pointer;border-radius:4px}
+.kpi b{font-size:26px;display:block;line-height:1.1}
+.kpi span{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
+.kpi.on{background:#000;color:#fff}.kpi.on span{color:#ccc}
+.bar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+input,select,textarea{font:inherit;padding:8px 10px;border:1px solid #bbb;border-radius:4px;background:#fff;color:#111;width:100%}
+textarea{resize:vertical;min-height:60px}
+.bar input,.bar select{max-width:300px}
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:4px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:800px}
+th{background:#000;color:#fff;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:10px;white-space:nowrap}
+td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:middle}
+tr.row{cursor:pointer}tr.row:hover{background:#fafafa}
+.sc{display:inline-block;min-width:34px;text-align:center;padding:4px 8px;border-radius:4px;font-weight:700}
+.s0{background:var(--r0);color:#fff}.s1{background:var(--r1)}.s2{background:var(--y)}.s3{background:var(--g)}
+.al{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid #000;white-space:nowrap}
+.al.v{background:#000;color:#fff}.al.f{background:#555;color:#fff;border-color:#555}.al.n{background:#d9d9d9;border-color:#d9d9d9}.al.o{background:#fff;color:#555;border-color:#ccc;font-weight:400}
+.mute{color:var(--mute);font-size:12px}
+.empty{padding:40px;text-align:center;color:var(--mute)}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.25);transform:translateX(105%);transition:.2s;z-index:10;display:flex;flex-direction:column}
+.panel.open{transform:none}
+.ph{background:#000;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.ph button{border-color:#fff;background:transparent;color:#fff;padding:4px 10px}
+.pb{padding:16px 18px;overflow:auto;flex:1}
+.pf{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px;color:#333}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+h4{margin:20px 0 0;padding:6px 0;border-bottom:2px solid #000;text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+.pts{display:grid;grid-template-columns:repeat(11,1fr);gap:4px}
+.pts button{padding:8px 0;font-weight:700;border:1px solid #999}
+.pts button.sel{outline:3px solid #000;outline-offset:1px}
+.help{font-size:12px;color:var(--mute);margin-top:4px}
+.msg{background:#f4f4f4;border:1px solid var(--line);border-radius:4px;padding:10px;white-space:pre-wrap;font-size:13px;margin-top:6px}
+.shade{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9;display:none}.shade.open{display:block}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#000;color:#fff;padding:10px 18px;border-radius:4px;z-index:30;display:none}
+a.btn{text-decoration:none;display:inline-block}
+#login[hidden],#app[hidden]{display:none!important}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;padding:20px}
+#login .box{background:#fff;width:min(380px,100%);padding:28px;border-radius:6px}
+#login .logo{color:#000;text-align:center;margin-bottom:4px}
+#login p{text-align:center;color:var(--mute);margin:0 0 10px}
+#login .err{color:#c00000;font-size:13px;margin-top:10px;min-height:18px}
+#login button{width:100%;margin-top:12px}
+@media(max-width:600px){.g2{grid-template-columns:1fr}.pts{grid-template-columns:repeat(6,1fr)}}
+</style></head><body>
+<div id="login" hidden><div class="box">
+<div class="logo">MEGATLON</div><p>Seguimiento NPS · pasivos y detractores</p>
+<label>Mail de Megatlon</label><input id="lMail" type="email" autocomplete="username">
+<label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+<button class="pri" onclick="entrar()">Entrar</button>
+<button onclick="crear()">Es mi primera vez: crear mi contraseña</button>
+<div class="err" id="lErr"></div>
+</div></div>
+
+<div id="app" hidden>
+<header>
+<div class="logo">MEGATLON</div><div class="sede" id="sedeTxt"></div><div class="sp"></div>
+<button onclick="openData()">Datos y Excel</button>
+<button class="pri" onclick="openCase()">+ Nuevo caso</button>
+<button onclick="salir()">Salir</button>
+</header>
+<main>
+<div class="kpis" id="kpis"></div>
+<div class="bar"><input id="q" placeholder="Buscar socio, mail o reclamo…" oninput="render()"><select id="fSede" onchange="render()" hidden></select></div>
+<div class="tablewrap"><table><thead><tr><th>Puntaje</th><th>Socio</th><th class="cSede">Sede</th><th>Tipo</th><th>Encuesta</th><th>Días</th><th>Estado</th><th>Alerta</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No hay casos para mostrar. Tocá <b>+ Nuevo caso</b> para cargar el primero.</div></div>
+</main>
+<div class="shade" id="shade" onclick="closeAll()"></div>
+
+<div class="panel" id="pc"><div class="ph"><span id="pcT">Nuevo caso</span><button onclick="closeAll()">Cerrar</button></div>
+<div class="pb">
+<div id="sedeBox"><label>Sede</label><select id="sede"></select></div>
+<h4>Encuesta</h4>
+<div class="g2"><div><label>Fecha de encuesta</label><input type="date" id="fecha"></div><div><label>Cant. de encuestas</label><input type="number" id="cant" min="1" value="1"></div></div>
+<label>Puntaje que puso (0–10)</label><div class="pts" id="pts"></div>
+<label>Por qué puntuó así</label><textarea id="porque"></textarea>
+<label>Reclamo / motivo</label><textarea id="reclamo"></textarea>
+<h4>Socio</h4>
+<label>Nombre y apellido</label><input id="socio">
+<div class="g2"><div><label>N° de socio</label><input id="nsocio"></div><div><label>Celular</label><input id="cel" placeholder="11 5555 1234"></div></div>
+<div class="help">Celular con característica, sin 0 ni 15.</div>
+<label>Mail</label><input id="mail" type="email">
+<div id="seg">
+<h4>Seguimiento</h4>
+<div class="g2"><div><label>Estado</label><select id="estado"><option>Pendiente</option><option>En gestión</option><option>Mejorado</option><option>Sin solución</option></select></div><div><label>Fecha de mejora</label><input type="date" id="fmejora"></div></div>
+<label>Mejora realizada</label><textarea id="mejora" placeholder="Ej.: reforzamos la limpieza de los vestuarios en todos los turnos"></textarea>
+<label>Notas / plan de trabajo</label><textarea id="notas"></textarea>
+<h4>Avisar al socio</h4>
+<div class="msg" id="msgPrev"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn pri" id="bMail" target="_blank" rel="noopener">Abrir en Outlook</a><a class="btn" id="bWa" target="_blank" rel="noopener">Abrir WhatsApp</a><button onclick="copyMsg()">Copiar texto</button></div>
+<div class="help">El mensaje queda listo y lo enviás vos. Si querés sumar foto, adjuntala al enviar.</div>
+<label>¿Ya le avisaste?</label><select id="aviso"><option>No</option><option>Sí</option></select>
+<h4>Segunda encuesta</h4>
+<div class="g2"><div><label>Puntaje 2ª encuesta</label><input type="number" id="p2" min="0" max="10"></div><div><label>Fecha 2ª encuesta</label><input type="date" id="f2"></div></div>
+</div>
+</div>
+<div class="pf"><button id="bDel" onclick="del()" style="border-color:#c00000;color:#c00000">Eliminar</button><button class="pri" id="bSave" onclick="save()">Guardar caso</button></div></div>
+
+<div class="panel" id="pd"><div class="ph"><span>Datos y Excel</span><button onclick="closeAll()">Cerrar</button></div>
+<div class="pb">
+<h4>Pasar al Excel</h4>
+<p>Copia los casos que ves en pantalla. Pegalos en el Excel, en la primera fila libre.</p>
+<button class="pri" onclick="copyTSV()">Copiar casos para el Excel</button>
+</div></div>
+<div class="toast" id="toast"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+var SUPABASE_URL="https://gwhjbpcrqednswqxigpl.supabase.co";
+var SUPABASE_KEY="sb_publishable_UU403qAma0QBKGF9TjRHBQ_9IhIwt48";
+var CFG={p1:2,p2:3,p3:7,s1:120,s2:150,s3:240};
+var $=function(i){return document.getElementById(i)};
+var sb=null,me=null,S={cases:[],sedes:[]},filt="",cur=null,sc=null,saving=false;
+function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(function(){e.style.display="none"},2600)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function today(){var d=new Date();d.setHours(0,0,0,0);return d}
+function days(f){return f?Math.round((today()-new Date(f+"T00:00:00"))/864e5):null}
+function fmt(f){if(!f)return"";var p=f.split("-");return p[2]+"/"+p[1]+"/"+p[0]}
+function tipo(p){return p<=3?"Detractor 0-3":p<=6?"Detractor 4-6":p<=8?"Pasivo":"Promotor"}
+function cls(p){return p<=3?"s0":p<=6?"s1":p<=8?"s2":"s3"}
+function plazo(p){return p<=3?CFG.p1:p<=6?CFG.p2:CFG.p3}
+function hasP2(c){return c.p2!==null&&c.p2!==undefined&&c.p2!==""}
+function alerta(c){var d=days(c.fecha);if(d===null)return"";
+ if(hasP2(c)&&+c.p2>=9)return"Ya es promotor";
+ if(c.estado==="Sin solución")return"Cerrado sin solución";
+ if(c.estado==="Mejorado"&&c.aviso!=="Sí")return"Falta avisar al socio";
+ if(c.estado!=="Mejorado"&&d>=plazo(+c.puntaje))return"Vencido";
+ if(hasP2(c))return"2ª encuesta respondida";
+ if(d>=CFG.s3)return"2ª encuesta atrasada";if(d>=CFG.s2)return"2ª encuesta inminente";if(d>=CFG.s1)return"2ª encuesta próxima";return"En curso"}
+function acls(a){return a==="Vencido"?"v":a==="Falta avisar al socio"?"f":(a.indexOf("2ª encuesta")===0&&a.indexOf("respondida")<0)?"n":"o"}
+function is2(a){return a==="2ª encuesta próxima"||a==="2ª encuesta inminente"||a==="2ª encuesta atrasada"}
+
+function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lErr").textContent=msg||""}
+async function init(){
+ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+ var r=await sb.auth.getSession();
+ if(r.data&&r.data.session)await abrirApp();else showLogin("")}
+async function entrar(){var r=await sb.auth.signInWithPassword({email:$("lMail").value.trim(),password:$("lPass").value});
+ if(r.error){$("lErr").textContent="Mail o contraseña incorrectos.";return}await abrirApp()}
+async function crear(){var m=$("lMail").value.trim(),p=$("lPass").value;
+ if(!m||p.length<6){$("lErr").textContent="Escribí tu mail de Megatlon y una contraseña de 6 o más caracteres.";return}
+ var r=await sb.auth.signUp({email:m,password:p});
+ if(r.error){$("lErr").textContent=r.error.message;return}
+ if(!r.data.session){$("lErr").textContent="Cuenta creada. Si pide confirmar por mail, revisá tu casilla y volvé a entrar.";return}
+ await abrirApp()}
+async function salir(){await sb.auth.signOut();location.reload()}
+async function abrirApp(){
+ var g=await sb.from("gerentes").select("*");
+ if(g.error||!g.data||!g.data.length){await sb.auth.signOut();showLogin("Tu mail no está habilitado. Pedile el acceso a Jorge Leguizamón.");return}
+ var email=(await sb.auth.getSession()).data.session.user.email.toLowerCase();
+ me=g.data.filter(function(x){return x.email.toLowerCase()===email})[0]||g.data[0];
+ var s={};g.data.forEach(function(x){s[x.sede]=1});S.sedes=Object.keys(s).filter(function(x){return x!=="Región"}).sort();
+ $("login").hidden=true;$("app").hidden=false;
+ $("sedeTxt").textContent=me.rol==="regional"?"Vista regional":"Sede "+me.sede;
+ if(me.rol==="regional"){$("fSede").hidden=false;$("fSede").innerHTML='<option value="">Todas las sedes</option>'+S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")}
+ document.querySelectorAll(".cSede").forEach(function(e){e.style.display=me.rol==="regional"?"":"none"});
+ await cargar()}
+async function cargar(){var r=await sb.from("casos").select("*").order("fecha",{ascending:false});
+ if(r.error){toast("No se pudieron cargar los casos");return}S.cases=r.data||[];render()}
+
+function visibles(){var fs=$("fSede").value;return S.cases.filter(function(c){return!fs||c.sede===fs})}
+function render(){
+ var base=visibles(),list=base.map(function(c){return{c:c,a:alerta(c)}}),cnt={v:0,f:0,s:0,p:0};
+ list.forEach(function(x){if(x.a==="Vencido")cnt.v++;if(x.a==="Falta avisar al socio")cnt.f++;if(is2(x.a))cnt.s++;if(x.a==="Ya es promotor")cnt.p++});
+ var K=[["","Todos",base.length],["Vencido","Vencidos",cnt.v],["Falta avisar al socio","Falta avisar",cnt.f],["2ª","2ª encuesta",cnt.s],["Ya es promotor","Promotores",cnt.p]];
+ $("kpis").innerHTML=K.map(function(k){return'<div class="kpi'+(filt===k[0]?" on":"")+'" onclick="setF(\''+k[0]+'\')"><b>'+k[2]+'</b><span>'+k[1]+'</span></div>'}).join("");
+ var q=$("q").value.toLowerCase();
+ list=list.filter(function(x){var c=x.c;if(filt==="2ª"){if(!is2(x.a))return false}else if(filt&&x.a!==filt)return false;
+  return!q||((c.socio||"")+" "+(c.mail||"")+" "+(c.reclamo||"")+" "+(c.porque||"")).toLowerCase().indexOf(q)>=0});
+ var rank={"Vencido":0,"Falta avisar al socio":1};list.sort(function(a,b){var ra=rank[a.a]!=null?rank[a.a]:2,rb=rank[b.a]!=null?rank[b.a]:2;return ra-rb||(b.c.fecha||"").localeCompare(a.c.fecha||"")});
+ var reg=me&&me.rol==="regional";
+ $("rows").innerHTML=list.map(function(x){var c=x.c,p=+c.puntaje;return'<tr class="row" onclick="openCase(\''+c.id+'\')"><td><span class="sc '+cls(p)+'">'+p+'</span></td><td><b>'+esc(c.socio)+'</b><div class="mute">'+esc((c.reclamo||c.porque||"").slice(0,70))+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(c.sede)+'</td><td>'+tipo(p)+'</td><td>'+fmt(c.fecha)+'</td><td>'+days(c.fecha)+'</td><td>'+esc(c.estado)+'</td><td><span class="al '+acls(x.a)+'">'+esc(x.a)+'</span></td></tr>'}).join("");
+ $("empty").hidden=list.length>0;window._list=list}
+function setF(f){filt=(filt===f?"":f);render()}
+
+function drawPts(){$("pts").innerHTML="";for(var i=0;i<=10;i++){(function(i){var b=document.createElement("button");b.textContent=i;b.className=cls(i)+(sc===i?" sel":"");b.onclick=function(){sc=i;drawPts()};$("pts").appendChild(b)})(i)}}
+function nrm(n){var d=String(n||"").replace(/[\s\-+()]/g,"");if(!d)return"";if(d.indexOf("549")===0)return d;if(d.indexOf("54")===0)return"549"+d.slice(2);return"549"+d}
+function msgs(){var sd=$("sede").value||(me&&me.sede)||"",m=$("mejora").value.trim()||"estamos trabajando en lo que nos planteaste",n=$("socio").value.trim(),nom=me.nombre,car=me.cargo;
+ return{asunto:"Megatlon "+sd+": novedades sobre tu comentario",
+ mail:"Hola "+n+",\n\nSoy "+nom+", "+car+" de Megatlon "+sd+". Leímos tu comentario en la encuesta y queremos contarte que "+m+".\n\nGracias por ayudarnos a mejorar. ¡Te esperamos!\n"+nom,
+ wa:"Hola "+n+", te escribe "+nom+" de Megatlon "+sd+". Sobre tu comentario en la encuesta: "+m+". ¡Gracias por ayudarnos a mejorar!"}}
+function prev(){if(!me)return;var m=msgs();$("msgPrev").textContent=m.mail;var mail=$("mail").value.trim(),w=nrm($("cel").value);
+ $("bMail").href=mail?"https://outlook.office.com/mail/deeplink/compose?to="+encodeURIComponent(mail)+"&subject="+encodeURIComponent(m.asunto)+"&body="+encodeURIComponent(m.mail):"#";
+ $("bWa").href=w?"https://wa.me/"+w+"?text="+encodeURIComponent(m.wa):"#";$("bMail").style.opacity=mail?1:.4;$("bWa").style.opacity=w?1:.4}
+function copy(t){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Copiado")},fb)}else fb();function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast("Copiado")}catch(e){toast("No se pudo copiar")}a.remove()}}
+function copyMsg(){copy(msgs().mail)}
+function shade(on){$("shade").className="shade"+(on?" open":"")}
+function closeAll(){["pc","pd"].forEach(function(i){$(i).className="panel"});shade(false)}
+var F=["fecha","cant","porque","reclamo","socio","nsocio","cel","mail","estado","fmejora","mejora","notas","aviso","p2","f2"];
+function openCase(id){cur=id||null;var c=S.cases.filter(function(x){return x.id===id})[0]||{};
+ $("pcT").textContent=id?"Caso de "+(c.socio||""):"Nuevo caso";
+ F.forEach(function(f){var v=c[f];if(v==null)v=(f==="cant"?1:f==="estado"?"Pendiente":f==="aviso"?"No":f==="fecha"&&!id?new Date().toISOString().slice(0,10):"");$(f).value=v});
+ var reg=me.rol==="regional";$("sedeBox").style.display=reg?"block":"none";
+ if(reg){$("sede").innerHTML=S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("");$("sede").value=c.sede||$("fSede").value||S.sedes[0]||""}
+ else $("sede").innerHTML='<option>'+esc(me.sede)+'</option>';
+ sc=(c.puntaje===""||c.puntaje==null)?null:+c.puntaje;drawPts();$("seg").style.display=id?"block":"none";$("bDel").style.display=id?"inline-block":"none";prev();
+ $("pc").className="panel open";shade(true)}
+["mejora","socio","mail","cel","sede"].forEach(function(i){$(i).addEventListener("input",prev)});
+async function save(){if(saving)return;
+ if(!$("socio").value.trim()){toast("Falta el nombre del socio");return}if(sc===null){toast("Elegí el puntaje");return}if(!$("fecha").value){toast("Falta la fecha de encuesta");return}
+ var row={sede:me.rol==="regional"?$("sede").value:me.sede,puntaje:sc};
+ F.forEach(function(f){var v=$(f).value;if(["fmejora","f2","p2","cant"].indexOf(f)>=0)v=(v===""?null:(f==="p2"||f==="cant"?+v:v));row[f]=v});
+ if(!cur){row.estado="Pendiente";row.aviso="No"}
+ saving=true;$("bSave").disabled=true;
+ var r=cur?await sb.from("casos").update(row).eq("id",cur):await sb.from("casos").insert(row);
+ saving=false;$("bSave").disabled=false;
+ if(r.error){toast("No se pudo guardar: "+r.error.message);return}
+ closeAll();await cargar();toast("Caso guardado")}
+async function del(){if(!cur)return;if(!confirm("¿Eliminar este caso? No se puede deshacer."))return;
+ var r=await sb.from("casos").delete().eq("id",cur);if(r.error){toast("No se pudo eliminar");return}closeAll();await cargar()}
+function openData(){$("pd").className="panel open";shade(true)}
+function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
+ if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
+init();
+</script></body></html>
