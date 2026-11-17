@@ -64,13 +64,22 @@ a.btn{text-decoration:none;display:inline-block}
 @media(max-width:600px){.g2{grid-template-columns:1fr}.pts{grid-template-columns:repeat(6,1fr)}}
 </style></head><body>
 
-<div id="login" hidden><div class="box">
+<div id="login" hidden><div class="box" id="boxLogin">
 <div class="logo">MEGATLON</div><p>Seguimiento NPS · pasivos y detractores</p>
 <label>Mail de Megatlon</label><input id="lMail" type="email" autocomplete="username">
 <label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
 <button class="pri" onclick="entrar()">Entrar</button>
 <button onclick="crear()">Es mi primera vez: crear mi contraseña</button>
 <div class="err" id="lErr"></div>
+</div>
+<div class="box" id="boxPerfil" hidden>
+<div class="logo">MEGATLON</div><p>Completá tus datos (una sola vez)</p>
+<label>Nombre y apellido</label><input id="pNom">
+<label>Cargo</label><input id="pCar" value="Gerente de Servicios">
+<label>Sede</label><select id="pSede"></select>
+<input id="pSedeO" placeholder="Nombre de tu sede" style="margin-top:8px" hidden>
+<button class="pri" onclick="guardarPerfil()">Guardar y entrar</button>
+<div class="err" id="pErr"></div>
 </div></div>
 
 <div id="app" hidden>
@@ -167,7 +176,7 @@ function probable(c){if(!c.fecha)return"";var d=new Date(c.fecha+"T00:00:00");d.
 function acls(a){return a==="Vencido"||a==="Recontactar ahora"?"v":a==="Falta avisar al socio"?"f":(a==="2ª encuesta próxima"||a==="2ª encuesta atrasada")?"n":"o"}
 function is2(a){return a==="2ª encuesta próxima"||a==="Recontactar ahora"||a==="2ª encuesta atrasada"}
 
-function showLogin(msg){$("app").hidden=true;$("login").hidden=false;$("lErr").textContent=msg||""}
+function showLogin(msg){$("boxPerfil").hidden=true;$("boxLogin").hidden=false;$("app").hidden=true;$("login").hidden=false;$("lErr").textContent=msg||""}
 async function init(){
  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
  var r=await sb.auth.getSession();
@@ -187,6 +196,7 @@ async function abrirApp(){
  var email=(await sb.auth.getSession()).data.session.user.email.toLowerCase();
  me=g.data.filter(function(x){return x.email.toLowerCase()===email})[0]||g.data[0];
  var s={};g.data.forEach(function(x){s[x.sede]=1});S.sedes=Object.keys(s).filter(function(x){return x!=="Región"}).sort();
+ if(me.completo===false){await mostrarPerfil();return}
  $("login").hidden=true;$("app").hidden=false;
  $("sedeTxt").textContent=me.rol==="regional"?"Vista regional":"Sede "+me.sede;
  if(me.rol==="regional"){$("fSede").hidden=false;$("fSede").innerHTML='<option value="">Todas las sedes</option>'+S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")}
@@ -296,6 +306,15 @@ async function activarAvisos(){
  if(!s)s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID)});
  var r=await guardarSub(s);if(r.error){toast("No se pudo activar: "+r.error.message);return}
  $("bPush").textContent="Avisos activados ✓";reg.showNotification("Megatlon NPS",{body:"Listo: te avisamos cuando haya socios para recontactar."})}
+async function mostrarPerfil(){var r=await sb.rpc("sedes_conocidas"),L=(r.data||[]).map(function(x){return typeof x==="string"?x:Object.values(x)[0]});
+ $("pSede").innerHTML='<option value="">Elegí tu sede…</option>'+L.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")+'<option value="__otra">Otra sede…</option>';
+ $("pSede").onchange=function(){$("pSedeO").hidden=this.value!=="__otra"};
+ $("boxLogin").hidden=true;$("boxPerfil").hidden=false;$("app").hidden=true;$("login").hidden=false}
+async function guardarPerfil(){var n=$("pNom").value.trim(),c=$("pCar").value.trim(),s=$("pSede").value==="__otra"?$("pSedeO").value.trim():$("pSede").value;
+ if(n.length<3||c.length<2||s.length<2){$("pErr").textContent="Completá nombre, cargo y sede.";return}
+ var r=await sb.rpc("completar_perfil",{p_nombre:n,p_cargo:c,p_sede:s});
+ if(r.error){$("pErr").textContent="No se pudo guardar: "+r.error.message;return}
+ $("boxPerfil").hidden=true;$("boxLogin").hidden=false;await abrirApp()}
 function openData(){$("pd").className="panel open";shade(true)}
 function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas,c.zona,fmt(c.frecontacto),c.recontacto].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
  if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
