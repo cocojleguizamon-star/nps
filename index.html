@@ -100,12 +100,12 @@ a.btn{text-decoration:none;display:inline-block}
 <div class="tabs"><button id="tN" class="on" onclick="setV('N')">NPS · pasivos y detractores</button><button id="tS" onclick="setV('S')">Sleepers</button></div>
 <main id="vN">
 <div class="kpis" id="kpis"></div>
-<div class="bar"><input id="q" placeholder="Buscar socio, mail o reclamo…" oninput="render()"><select id="fSede" onchange="render()" hidden></select></div>
+<div class="bar"><input id="q" placeholder="Buscar socio, mail o reclamo…" oninput="render()"><select id="fSede" onchange="render()" hidden></select><button onclick="delVis('N')" style="border-color:#c00000;color:#c00000">Borrar los que veo</button></div>
 <div class="tablewrap"><table><thead><tr><th>Puntaje</th><th>Socio</th><th class="cSede">Sede</th><th>Tipo</th><th>Encuesta</th><th>Zona</th><th>2ª probable</th><th>Estado</th><th>Alerta</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No hay casos para mostrar. Tocá <b>+ Nuevo caso</b> para cargar el primero.</div></div>
 </main>
 <main id="vS" hidden>
   <div class="kpis" id="kpisS"></div>
-  <div class="bar"><input id="qs" placeholder="Buscar socio o DNI…" oninput="renderS()"><select id="fSedeS" onchange="renderS()" hidden></select><select id="fTramo" onchange="renderS()"><option value="">Todos los tramos</option><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select></div>
+  <div class="bar"><input id="qs" placeholder="Buscar socio o DNI…" oninput="renderS()"><select id="fSedeS" onchange="renderS()" hidden></select><select id="fTramo" onchange="renderS()"><option value="">Todos los tramos</option><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select><button onclick="delVis('S')" style="border-color:#c00000;color:#c00000">Borrar los que veo</button></div>
   <div class="tablewrap"><table style="min-width:1000px"><thead><tr><th>Socio</th><th class="cSede">Sede</th><th>Último acceso</th><th>Tramo</th><th>Plan</th><th>Fin contrato</th><th>Último contacto</th><th>Estado</th></tr></thead><tbody id="rowsS"></tbody></table><div id="emptyS" class="empty" hidden>No hay sleepers para mostrar. Tocá <b>Cargar sleepers</b> para sumar la lista de tu sede.</div></div>
   <div class="mute" id="cntS" style="margin-top:8px"></div>
 </main>
@@ -382,7 +382,7 @@ function renderS(){if(!me)return;var base=slVis(),n={};EST.forEach(function(e){n
  list.sort(function(a,b){var ra=rk[a.estado]!=null?rk[a.estado]:2,rb=rk[b.estado]!=null?rk[b.estado]:2,da=dsv(a),db=dsv(b);return ra-rb||(da==null?9999:da)-(db==null?9999:db)||(a.apellido||"").localeCompare(b.apellido||"")});
  var cl={"Sin contactar":"v","Contactado":"f","Volvió":"n","Volvió solo":"n"};
  $("rowsS").innerHTML=list.slice(0,600).map(function(x){var d=dsv(x);return'<tr class="row" onclick="openSl(\''+x.id+'\')"><td><b>'+esc(x.apellido)+(x.nombre?", "+esc(cap(x.nombre)):"")+'</b><div class="mute">DNI '+esc(x.dni)+(x.nsocio?" · N° "+esc(x.nsocio):"")+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(x.sede)+'</td><td>'+(x.ultimo_acceso?fmt(x.ultimo_acceso)+'<div class="mute">hace '+d+' días</div>':"–")+'</td><td>'+(x.tramo?x.tramo+" días":"–")+'</td><td>'+esc((x.plan||"").slice(0,34))+(x.pmp?'<div class="mute">'+x.pmp+' meses</div>':"")+'</td><td>'+fmt(x.fin_contrato)+'</td><td>'+(x.fcontacto?fmt(x.fcontacto)+(x.canal?" · "+esc(x.canal):""):"–")+'</td><td><span class="al '+(cl[x.estado]||"o")+'">'+esc(x.estado)+'</span></td></tr>'}).join("");
- $("emptyS").hidden=list.length>0;$("cntS").textContent=list.length>600?"Mostrando 600 de "+list.length+". Usá el buscador o los filtros.":""}
+ window._listS=list;$("emptyS").hidden=list.length>0;$("cntS").textContent=list.length>600?"Mostrando 600 de "+list.length+". Usá el buscador o los filtros.":""}
 /* contacto */
 function slMsg(){var x=(S.sl||[]).filter(function(y){return y.id===slCur})[0]||{},sd=x.sede||me.sede,n=cap((x.nombre||"").split(" ")[0]);
  return{asunto:"Te extrañamos en Megatlon "+sd,
@@ -405,6 +405,12 @@ async function saveSl(){if(saving||!slCur)return;var e=$("slEst").value,hoy=new 
  saving=true;var r=await sb.from("sleepers").update(row).eq("id",slCur);saving=false;
  if(r.error){toast("No se pudo guardar: "+r.error.message);return}
  closeAll();await cargarS();toast("Guardado")}
+async function delVis(w){var L=w==="S"?(window._listS||[]):(window._list||[]).map(function(x){return x.c});if(!L.length){toast("No hay nada para borrar");return}
+ if(!confirm("Vas a borrar "+L.length+(w==="S"?" sleepers":" casos")+" (los que estás viendo con los filtros actuales). No se puede deshacer. ¿Seguís?"))return;
+ if(L.length>20&&!confirm("Confirmá de nuevo: se borran "+L.length+" registros."))return;
+ if(saving)return;saving=true;var t=w==="S"?"sleepers":"casos",ids=L.map(function(x){return x.id}),err=null;
+ for(var i=0;i<ids.length;i+=100){var r=await sb.from(t).delete().in("id",ids.slice(i,i+100));if(r.error){err=r.error.message;break}}
+ saving=false;if(err)toast("No se pudo borrar: "+err);else toast("Borrados: "+ids.length);await(w==="S"?cargarS():cargar())}
 async function delSl(){if(!slCur||saving)return;if(!confirm("¿Eliminar este socio de la lista de sleepers? No se puede deshacer. Si vuelve a figurar en una próxima carga, entra como nuevo."))return;saving=true;var r=await sb.from("sleepers").delete().eq("id",slCur);saving=false;if(r.error){toast("No se pudo eliminar: "+r.error.message);return}closeAll();await cargarS();toast("Eliminado")}
 function slContactado(){$("slEst").value="Contactado";if(!$("slFc").value)$("slFc").value=new Date().toISOString().slice(0,10);saveSl()}
 /* carga de la lista */
