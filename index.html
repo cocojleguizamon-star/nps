@@ -169,7 +169,7 @@ a.btn{text-decoration:none;display:inline-block}
  <label>Qué respondió / motivo</label><textarea id="slNota" placeholder="Ej.: se lesionó, cambió de horario, problema con la cuota…"></textarea>
  <div class="help">Cuando vuelvas a cargar la lista del tablero, si el socio ya no figura como sleeper pasa solo a Volvió.</div>
 </div>
-<div class="pf"><button onclick="slContactado()">Marcar contactado hoy</button><button class="pri" onclick="saveSl()">Guardar</button></div></div>
+<div class="pf"><button onclick="delSl()" style="border-color:#c00000;color:#c00000">Eliminar</button><button onclick="slContactado()">Marcar contactado hoy</button><button class="pri" onclick="saveSl()">Guardar</button></div></div>
 
 <div class="panel" id="pci" style="width:min(640px,100%)"><div class="ph"><span>Cargar sleepers</span><button onclick="closeAll()">Cerrar</button></div>
 <div class="pb">
@@ -405,6 +405,7 @@ async function saveSl(){if(saving||!slCur)return;var e=$("slEst").value,hoy=new 
  saving=true;var r=await sb.from("sleepers").update(row).eq("id",slCur);saving=false;
  if(r.error){toast("No se pudo guardar: "+r.error.message);return}
  closeAll();await cargarS();toast("Guardado")}
+async function delSl(){if(!slCur||saving)return;if(!confirm("¿Eliminar este socio de la lista de sleepers? No se puede deshacer. Si vuelve a figurar en una próxima carga, entra como nuevo."))return;saving=true;var r=await sb.from("sleepers").delete().eq("id",slCur);saving=false;if(r.error){toast("No se pudo eliminar: "+r.error.message);return}closeAll();await cargarS();toast("Eliminado")}
 function slContactado(){$("slEst").value="Contactado";if(!$("slFc").value)$("slFc").value=new Date().toISOString().slice(0,10);saveSl()}
 /* carga de la lista */
 function openCarga(){$("ciTx").oninput=function(){ciRows=null;ciInfo=""};var reg=me.rol==="regional";$("ciSedeBox").style.display=reg?"block":"none";
