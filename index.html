@@ -106,7 +106,7 @@ a.btn{text-decoration:none;display:inline-block}
 <main id="vS" hidden>
   <div class="kpis" id="kpisS"></div>
   <div class="bar"><input id="qs" placeholder="Buscar socio o DNI…" oninput="renderS()"><select id="fSedeS" onchange="renderS()" hidden></select><select id="fTramo" onchange="renderS()"><option value="">Todos los tramos</option><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select></div>
-  <div class="tablewrap"><table style="min-width:760px"><thead><tr><th>Socio</th><th class="cSede">Sede</th><th>Tramo</th><th>En lista desde</th><th>Fin contrato</th><th>Último contacto</th><th>Estado</th></tr></thead><tbody id="rowsS"></tbody></table><div id="emptyS" class="empty" hidden>No hay sleepers para mostrar. Tocá <b>Cargar sleepers</b> para sumar la lista de tu sede.</div></div>
+  <div class="tablewrap"><table style="min-width:1000px"><thead><tr><th>Socio</th><th class="cSede">Sede</th><th>Último acceso</th><th>Tramo</th><th>Plan</th><th>Fin contrato</th><th>Último contacto</th><th>Estado</th></tr></thead><tbody id="rowsS"></tbody></table><div id="emptyS" class="empty" hidden>No hay sleepers para mostrar. Tocá <b>Cargar sleepers</b> para sumar la lista de tu sede.</div></div>
   <div class="mute" id="cntS" style="margin-top:8px"></div>
 </main>
 <div class="shade" id="shade" onclick="closeAll()"></div>
@@ -173,16 +173,19 @@ a.btn{text-decoration:none;display:inline-block}
 
 <div class="panel" id="pci" style="width:min(640px,100%)"><div class="ph"><span>Cargar sleepers</span><button onclick="closeAll()">Cerrar</button></div>
 <div class="pb">
+ <div class="help"><b>Paso a paso:</b> en Power BI, página <b>Listado Bases</b>, solapa <b>Sleepers</b>, filtrá tu sede, tocá los tres puntitos de la tabla y <b>Exportar datos</b>. Subí ese Excel acá: trae teléfono, mail, último acceso y plan, y la app los carga solos.</div>
+ <label>Excel de Power BI</label><input type="file" id="ciFile" accept=".xlsx,.xls,.csv" onchange="leerXlsx(this.files[0])">
  <div id="ciSedeBox"><label>Sede</label><select id="ciSd"></select></div>
- <label>Qué lista es</label><select id="ciTr"><option value="">Todos los sleepers (recomendado)</option><option value="30">Solo Sleepers 30 días</option><option value="60">Solo Sleepers 60 días</option><option value="90">Solo Sleepers 90 días</option></select>
- <div class="help"><b>Paso a paso:</b> en Power BI, página <b>Listado Bases</b>, solapa <b>Sleepers</b>: filtrá tu sede y elegí el tipo de sleeper. Seleccioná las filas de la tabla (clic en la primera, Shift + clic en la última), Ctrl + C y pegá acá. Si Power BI te deja exportar, también sirve el CSV.<br>Cargá siempre primero <b>Todos</b>: así la app detecta quién volvió. Si querés registrar el tramo, después cargá cada tramo por separado.</div>
- <label>Pegá la lista</label><textarea id="ciTx" style="min-height:170px" placeholder="Sucursal, DNI, Apellido, Nombre, Fecha documento, Fin contrato…"></textarea>
- <button class="pri" onclick="ciPrev()" style="margin-top:8px">Revisar lista</button>
+ <label>Qué lista es</label><select id="ciTr" onchange="if(ciRows||$('ciTx').value)ciPrev()"><option value="">Todos los sleepers (recomendado)</option><option value="30">Solo Sleepers 30 días</option><option value="60">Solo Sleepers 60 días</option><option value="90">Solo Sleepers 90 días</option></select>
+ <div class="help">Cargá siempre primero la lista <b>Todos</b>: así la app detecta quién volvió. Las listas de un solo tramo suman socios pero no marcan recuperados.</div>
+ <label>O pegá la tabla</label><textarea id="ciTx" style="min-height:90px" placeholder="Si no podés exportar, copiá las filas de la tabla y pegalas acá"></textarea>
+ <button onclick="ciPrev()" style="margin-top:8px">Revisar lo pegado</button>
  <div id="ciRes"></div>
 </div></div>
 <div class="toast" id="toast"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 var SUPABASE_URL="https://gwhjbpcrqednswqxigpl.supabase.co";
@@ -369,15 +372,16 @@ async function cargarS(){var d=await fetchAll("sleepers");if(d===null){toast("No
 function slVis(){var f=$("fSedeS").value;return(S.sl||[]).filter(function(x){return!f||x.sede===f})}
 function volvio(x){return x.estado==="Volvió"||x.estado==="Volvió solo"}
 function setFS(f){fs2=(fs2===f?"":f);renderS()}
+function dsv(x){return x.ultimo_acceso?days(x.ultimo_acceso):null}
 function renderS(){if(!me)return;var base=slVis(),n={};EST.forEach(function(e){n[e]=0});base.forEach(function(x){n[x.estado]=(n[x.estado]||0)+1});
  var K=[["","Todos",base.length],["Sin contactar","Sin contactar",n["Sin contactar"]],["Contactado","Contactados",n["Contactado"]],["V","Volvieron",n["Volvió"]+n["Volvió solo"]],["No vuelve","No vuelve",n["No vuelve"]]];
  $("kpisS").innerHTML=K.map(function(k){return'<div class="kpi'+(fs2===k[0]?" on":"")+'" onclick="setFS(\''+k[0]+'\')"><b>'+k[2]+'</b><span>'+k[1]+'</span></div>'}).join("");
  var q=$("qs").value.toLowerCase(),tr=$("fTramo").value,reg=me.rol==="regional";
- var list=base.filter(function(x){if(fs2==="V"){if(!volvio(x))return false}else if(fs2&&x.estado!==fs2)return false;if(tr&&x.tramo!==tr)return false;return!q||((x.apellido||"")+" "+(x.nombre||"")+" "+x.dni).toLowerCase().indexOf(q)>=0});
+ var list=base.filter(function(x){if(fs2==="V"){if(!volvio(x))return false}else if(fs2&&x.estado!==fs2)return false;if(tr&&x.tramo!==tr)return false;return!q||((x.apellido||"")+" "+(x.nombre||"")+" "+x.dni+" "+(x.nsocio||"")).toLowerCase().indexOf(q)>=0});
  var rk={"Sin contactar":0,"Contactado":1};
- list.sort(function(a,b){var ra=rk[a.estado]!=null?rk[a.estado]:2,rb=rk[b.estado]!=null?rk[b.estado]:2;return ra-rb||(a.tramo||"99").localeCompare(b.tramo||"99")||(a.apellido||"").localeCompare(b.apellido||"")});
+ list.sort(function(a,b){var ra=rk[a.estado]!=null?rk[a.estado]:2,rb=rk[b.estado]!=null?rk[b.estado]:2,da=dsv(a),db=dsv(b);return ra-rb||(da==null?9999:da)-(db==null?9999:db)||(a.apellido||"").localeCompare(b.apellido||"")});
  var cl={"Sin contactar":"v","Contactado":"f","Volvió":"n","Volvió solo":"n"};
- $("rowsS").innerHTML=list.slice(0,600).map(function(x){return'<tr class="row" onclick="openSl(\''+x.id+'\')"><td><b>'+esc(x.apellido)+(x.nombre?", "+esc(cap(x.nombre)):"")+'</b><div class="mute">DNI '+esc(x.dni)+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(x.sede)+'</td><td>'+(x.tramo?x.tramo+" días":"–")+'</td><td>'+fmt(x.primera_vez)+'</td><td>'+fmt(x.fin_contrato)+'</td><td>'+(x.fcontacto?fmt(x.fcontacto)+(x.canal?" · "+esc(x.canal):""):"–")+'</td><td><span class="al '+(cl[x.estado]||"o")+'">'+esc(x.estado)+'</span></td></tr>'}).join("");
+ $("rowsS").innerHTML=list.slice(0,600).map(function(x){var d=dsv(x);return'<tr class="row" onclick="openSl(\''+x.id+'\')"><td><b>'+esc(x.apellido)+(x.nombre?", "+esc(cap(x.nombre)):"")+'</b><div class="mute">DNI '+esc(x.dni)+(x.nsocio?" · N° "+esc(x.nsocio):"")+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(x.sede)+'</td><td>'+(x.ultimo_acceso?fmt(x.ultimo_acceso)+'<div class="mute">hace '+d+' días</div>':"–")+'</td><td>'+(x.tramo?x.tramo+" días":"–")+'</td><td>'+esc((x.plan||"").slice(0,34))+(x.pmp?'<div class="mute">'+x.pmp+' meses</div>':"")+'</td><td>'+fmt(x.fin_contrato)+'</td><td>'+(x.fcontacto?fmt(x.fcontacto)+(x.canal?" · "+esc(x.canal):""):"–")+'</td><td><span class="al '+(cl[x.estado]||"o")+'">'+esc(x.estado)+'</span></td></tr>'}).join("");
  $("emptyS").hidden=list.length>0;$("cntS").textContent=list.length>600?"Mostrando 600 de "+list.length+". Usá el buscador o los filtros.":""}
 /* contacto */
 function slMsg(){var x=(S.sl||[]).filter(function(y){return y.id===slCur})[0]||{},sd=x.sede||me.sede,n=cap((x.nombre||"").split(" ")[0]);
@@ -390,7 +394,7 @@ function slPrev(){if(!me||!slCur)return;var m=slMsg(),mail=$("slMail").value.tri
 ["slCel","slMail"].forEach(function(i){$(i).addEventListener("input",slPrev)});
 function openSl(id){slCur=id;var x=S.sl.filter(function(y){return y.id===id})[0];if(!x)return;
  $("slT").textContent=(x.apellido||"")+(x.nombre?", "+cap(x.nombre):"");
- $("slInfo").textContent="DNI "+x.dni+" · "+x.sede+(x.tramo?" · sleeper "+x.tramo+" días":"")+" · en lista desde "+fmt(x.primera_vez)+(x.fin_contrato?" · contrato hasta "+fmt(x.fin_contrato):"")+(x.frecuperado?" · volvió el "+fmt(x.frecuperado):"");
+ $("slInfo").innerHTML=esc("DNI "+x.dni+(x.nsocio?" · N° de socio "+x.nsocio:"")+" · "+x.sede)+"<br>"+esc((x.plan||"")+(x.pmp?" ("+x.pmp+" meses)":"")+(x.tipo?" · "+x.tipo:""))+"<br>"+esc((x.ultimo_acceso?"Último acceso "+fmt(x.ultimo_acceso)+" (hace "+dsv(x)+" días)":"")+(x.tramo?" · sleeper "+x.tramo+" días":"")+(x.fin_contrato?" · contrato hasta "+fmt(x.fin_contrato):"")+(x.frecuperado?" · volvió el "+fmt(x.frecuperado):""));
  $("slEst").innerHTML=EST.map(function(e){return'<option>'+e+'</option>'}).join("");$("slEst").value=x.estado;
  $("slCel").value=x.cel||"";$("slMail").value=x.mail||"";$("slCan").value=x.canal||"";$("slFc").value=x.fcontacto||"";$("slNota").value=x.nota||"";
  slPrev();$("psl").className="panel open";shade(true)}
@@ -403,41 +407,61 @@ async function saveSl(){if(saving||!slCur)return;var e=$("slEst").value,hoy=new 
  closeAll();await cargarS();toast("Guardado")}
 function slContactado(){$("slEst").value="Contactado";if(!$("slFc").value)$("slFc").value=new Date().toISOString().slice(0,10);saveSl()}
 /* carga de la lista */
-function openCarga(){var reg=me.rol==="regional";$("ciSedeBox").style.display=reg?"block":"none";
+function openCarga(){$("ciTx").oninput=function(){ciRows=null;ciInfo=""};var reg=me.rol==="regional";$("ciSedeBox").style.display=reg?"block":"none";
  $("ciSd").innerHTML=reg?S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join(""):'<option>'+esc(me.sede)+'</option>';
- if(reg&&$("fSedeS").value)$("ciSd").value=$("fSedeS").value;$("ciTx").value="";$("ciRes").innerHTML="";imp=null;$("pci").className="panel open";shade(true)}
+ if(reg&&$("fSedeS").value)$("ciSd").value=$("fSedeS").value;$("ciTx").value="";$("ciRes").innerHTML="";imp=null;ciRows=null;ciInfo="";$("ciTr").value="";$("ciFile").value="";$("pci").className="panel open";shade(true)}
 function pFecha(s){var m=String(s||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2):null}
-function parseSl(t){var o={},n=0;t.split(/\r?\n/).forEach(function(l){l=l.trim();if(!l)return;
+function xd(v){if(v===""||v==null)return null;if(typeof v==="number")return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);if(v instanceof Date)return v.toISOString().slice(0,10);return pFecha(v)}
+function nk(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"")}
+function parseSl(t){var o={};t.split(/\r?\n/).forEach(function(l){l=l.trim();if(!l)return;
  var tk=l.split("\t");if(tk.length<3)tk=l.split(/;|\s{2,}/);if(tk.length<3&&l.indexOf(",")>=0)tk=l.split(",");
  tk=tk.map(function(x){return x.replace(/^"|"$/g,"").trim()}).filter(function(x){return x!==""});
  var i=-1;for(var k=0;k<tk.length;k++){var d=tk[k].replace(/\./g,"");if(/^\d{6,9}$/.test(d)&&tk[k].indexOf("/")<0){i=k;tk[k]=d;break}}
- if(i<0)return;var fe=tk.filter(function(x){return/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x)}).map(pFecha),dni=tk[i],ap=tk[i+1]||"",no=tk[i+2]||"";
- if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(no))no="";if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(ap))ap="";
- if(!o[dni]){n++;o[dni]={dni:dni,apellido:ap,nombre:no,fin:fe.length>1?fe[fe.length-1]:null}}});
+ if(i<0)return;var DT=/^\d{1,2}\/\d{1,2}\/\d{4}$/,fe=tk.filter(function(x){return DT.test(x)}).map(pFecha),dni=tk[i],ap=tk[i+1]||"",no=tk[i+2]||"";
+ if(DT.test(no))no="";if(DT.test(ap))ap="";
+ var ml=tk.filter(function(x){return x.indexOf("@")>0})[0],tl=tk.filter(function(x,j){return j!==i&&/^\d{10,13}$/.test(x)})[0];
+ if(!o[dni])o[dni]={dni:dni,apellido:ap,nombre:no,fin:fe.length>1?fe[1]:null,ua:fe.length>2?fe[2]:null,mail:ml||null,cel:tl||null}});
  return Object.keys(o).map(function(k){return o[k]})}
-function ciPrev(){var L=parseSl($("ciTx").value),sd=me.rol==="regional"?$("ciSd").value:me.sede,tr=$("ciTr").value;
- if(!L.length){$("ciRes").innerHTML='<div class="res">No encontré socios en lo que pegaste. Tiene que haber una columna con el DNI.</div>';imp=null;return}
- var ex={};(S.sl||[]).filter(function(x){return x.sede===sd}).forEach(function(x){ex[x.dni]=x});
- var inL={};L.forEach(function(x){inL[x.dni]=1});
- var nuevos=L.filter(function(x){return!ex[x.dni]}),siguen=L.filter(function(x){return ex[x.dni]&&!volvio(ex[x.dni])}).map(function(x){return ex[x.dni]}),
- recaen=L.filter(function(x){return ex[x.dni]&&volvio(ex[x.dni])}).map(function(x){return ex[x.dni]}),
- salen=tr?[]:Object.keys(ex).filter(function(d){return!inL[d]&&ex[d].activo}).map(function(d){return ex[d]}),
- vc=salen.filter(function(x){return x.estado==="Contactado"}),vs=salen.filter(function(x){return x.estado==="Sin contactar"});
- imp={sd:sd,tr:tr,nuevos:nuevos,siguen:siguen,recaen:recaen,salen:salen};
- var act=Object.keys(ex).filter(function(d){return ex[d].activo}).length,warn=(!tr&&act>=20&&L.length<act*.5)?'<div style="color:#c00000;font-weight:700;margin-top:8px">Atención: esta lista tiene la mitad de socios que la anterior ('+act+'). Si es una lista parcial, elegí el tramo arriba; si no, '+salen.length+' socios quedarían como "volvieron".</div>':"";
- $("ciRes").innerHTML='<div class="res"><b>'+L.length+' socios en la lista · '+esc(sd)+'</b><br>Nuevos: '+nuevos.length+'<br>Siguen sin venir: '+siguen.length+(recaen.length?'<br>Volvieron a ser sleepers: '+recaen.length:'')+(tr?'<br><span class="mute">Lista de un solo tramo: no se marca quién volvió.</span>':'<br>Ya no figuran (volvieron a entrenar): '+salen.length+' ('+vc.length+' contactados por vos, '+vs.length+' solos)')+warn+'</div><button class="pri" onclick="ciGo()" style="margin-top:10px">Confirmar carga</button>'}
+var ciRows=null,ciInfo="";
+function leerXlsx(f){if(!f)return;if(typeof XLSX==="undefined"){toast("No se pudo cargar el lector de Excel. Probá pegar la lista");return}
+ var r=new FileReader();r.onload=function(){try{var wb=XLSX.read(new Uint8Array(r.result),{type:"array"}),ws=wb.Sheets[wb.SheetNames[0]],A=XLSX.utils.sheet_to_json(ws,{defval:"",raw:true}),o={},foot="";
+  A.forEach(function(row){var K={};Object.keys(row).forEach(function(k){K[nk(k)]=row[k]});
+   var first=String(row[Object.keys(row)[0]]||"");if(/^Filtros aplicados/i.test(first)){foot=first;return}
+   var dni=String(K.dni==null?"":K.dni).replace(/\D/g,"");if(!/^\d{6,9}$/.test(dni))return;
+   o[dni]={dni:dni,sede:String(K.sucursalacceso||"").trim(),apellido:String(K.apellido||"").trim(),nombre:String(K.nombre||"").trim(),fin:xd(K.fincontrato),ua:xd(K.ultimoacceso),
+    cel:String(K.telefono||"").replace(/\D/g,"")||null,mail:String(K.mail||"").trim()||null,plan:String(K.listaprecio||"").trim()||null,pmp:+K.pmp||null,nsocio:String(K.pksocio||"").trim()||null,tipo:[K.tiposocion1,K.tiposocion2].filter(Boolean).join(" · ")||null}});
+  ciRows=Object.keys(o).map(function(k){return o[k]});$("ciTx").value="";
+  var t=foot.match(/Sleepers\s*(\d+)\s*d/i);$("ciTr").value=t?t[1]:"";
+  ciInfo="Archivo "+f.name+": "+ciRows.length+" socios"+(t?" · detecté lista de Sleepers "+t[1]+" días":" · lista completa");
+  ciPrev()}catch(e){toast("No pude leer el archivo: "+e.message)}};r.readAsArrayBuffer(f)}
+function ciDiff(sd,L,tr){var ex={};(S.sl||[]).filter(function(x){return x.sede===sd}).forEach(function(x){ex[x.dni]=x});var inL={};L.forEach(function(x){inL[x.dni]=1});
+ var nuevos=[],siguen=[],recaen=[];L.forEach(function(x){var e=ex[x.dni];if(!e)nuevos.push(x);else if(volvio(e))recaen.push([e,x]);else siguen.push([e,x])});
+ var salen=tr?[]:Object.keys(ex).filter(function(d){return!inL[d]&&ex[d].activo}).map(function(d){return ex[d]});
+ var act=Object.keys(ex).filter(function(d){return ex[d].activo}).length;return{sd:sd,tr:tr,nuevos:nuevos,siguen:siguen,recaen:recaen,salen:salen,act:act,n:L.length}}
+function ciPrev(){var L=ciRows||parseSl($("ciTx").value),tr=$("ciTr").value,reg=me.rol==="regional",G={},err="";
+ if(!L.length){$("ciRes").innerHTML='<div class="res">No encontré socios. Tiene que haber una columna con el DNI.</div>';imp=null;return}
+ var fs={};L.forEach(function(x){if(x.sede)fs[x.sede]=1});var fn=Object.keys(fs);
+ if(!reg){if(fn.length>1)err="El archivo trae varias sedes ("+fn.join(", ")+"). En Power BI filtrá solo tu sede y descargalo de nuevo.";else G[me.sede]=L}
+ else if(fn.length>1){var unk=[];fn.forEach(function(nm){var m=S.sedes.filter(function(s){return s.toLowerCase()===nm.toLowerCase()})[0];if(m)G[m]=L.filter(function(x){return x.sede===nm});else unk.push(nm)});if(unk.length)err="Estas sedes del archivo no coinciden con ninguna sede de la app: "+unk.join(", ")+". Cargá esas por separado eligiendo la sede."}
+ else G[$("ciSd").value]=L;
+ if(err){$("ciRes").innerHTML='<div class="res" style="color:#c00000;font-weight:700">'+esc(err)+'</div>';imp=null;return}
+ var groups=Object.keys(G).map(function(sd){return ciDiff(sd,G[sd],tr)});imp={groups:groups};
+ var h='<div class="res">'+(ciInfo?'<div class="mute">'+esc(ciInfo)+'</div>':'')+(fn.length===1&&!reg&&fn[0].toLowerCase()!==me.sede.toLowerCase()?'<div class="mute">El archivo es de la sucursal "'+esc(fn[0])+'" y se carga en tu sede ('+esc(me.sede)+').</div>':'');
+ groups.forEach(function(g){var vc=g.salen.filter(function(x){return x.estado==="Contactado"}).length,vs=g.salen.filter(function(x){return x.estado==="Sin contactar"}).length;
+  h+='<div style="margin-top:8px"><b>'+g.n+' socios · '+esc(g.sd)+'</b><br>Nuevos: '+g.nuevos.length+'<br>Siguen sin venir: '+g.siguen.length+(g.recaen.length?'<br>Volvieron a ser sleepers: '+g.recaen.length:'')+(tr?'<br><span class="mute">Lista de un solo tramo: no se marca quién volvió. Para medir el recupero cargá la lista de Todos.</span>':'<br>Ya no figuran (volvieron a entrenar): '+g.salen.length+' ('+vc+' contactados por vos, '+vs+' solos)')+((!tr&&g.act>=20&&g.n<g.act*.5)?'<div style="color:#c00000;font-weight:700;margin-top:6px">Atención: esta lista tiene la mitad de socios que la anterior ('+g.act+'). Si es parcial, elegí el tramo arriba; si no, '+g.salen.length+' socios quedarían como "volvieron".</div>':'')+'</div>'});
+ $("ciRes").innerHTML=h+'</div><button class="pri" onclick="ciGo()" style="margin-top:10px">Confirmar carga</button>'}
 async function ciGo(){if(!imp||saving)return;saving=true;var I=imp,hoy=new Date().toISOString().slice(0,10),err=null;
  async function run(q){var r=await q;if(r.error&&!err)err=r.error.message}
  function ch(a,n){var o=[];for(var i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o}
- for(var a of ch(I.nuevos,200))await run(sb.from("sleepers").insert(a.map(function(x){return{sede:I.sd,dni:x.dni,apellido:x.apellido,nombre:x.nombre,tramo:I.tr||null,fin_contrato:x.fin,primera_vez:hoy,ultima_vez:hoy}})));
- var up={ultima_vez:hoy,activo:true};if(I.tr)up.tramo=I.tr;
- for(var a of ch(I.siguen.map(function(x){return x.id}),100))await run(sb.from("sleepers").update(up).in("id",a));
- var up2=Object.assign({estado:"Sin contactar",frecuperado:null},up);
- for(var a of ch(I.recaen.map(function(x){return x.id}),100))await run(sb.from("sleepers").update(up2).in("id",a));
- var G={Contactado:["Volvió",[]],"Sin contactar":["Volvió solo",[]]},R=[];
- I.salen.forEach(function(x){if(G[x.estado])G[x.estado][1].push(x.id);else R.push(x.id)});
- for(var k in G)for(var a of ch(G[k][1],100))await run(sb.from("sleepers").update({estado:G[k][0],frecuperado:hoy,activo:false}).in("id",a));
- for(var a of ch(R,100))await run(sb.from("sleepers").update({activo:false}).in("id",a));
+ for(var g of I.groups){
+  var rec=function(x,e){e=e||{};return{sede:g.sd,dni:x.dni,apellido:x.apellido||e.apellido||null,nombre:x.nombre||e.nombre||null,tramo:g.tr||e.tramo||null,fin_contrato:x.fin||e.fin_contrato||null,ultimo_acceso:x.ua||e.ultimo_acceso||null,plan:x.plan||e.plan||null,pmp:x.pmp||e.pmp||null,tipo:x.tipo||e.tipo||null,nsocio:x.nsocio||e.nsocio||null,cel:e.cel||x.cel||null,mail:e.mail||x.mail||null,ultima_vez:hoy,activo:true}};
+  for(var a of ch(g.nuevos,200))await run(sb.from("sleepers").insert(a.map(function(x){return rec(x)})));
+  for(var a of ch(g.siguen,200))await run(sb.from("sleepers").upsert(a.map(function(p){return rec(p[1],p[0])}),{onConflict:"sede,dni"}));
+  for(var a of ch(g.recaen,200))await run(sb.from("sleepers").upsert(a.map(function(p){return Object.assign(rec(p[1],p[0]),{estado:"Sin contactar",frecuperado:null})}),{onConflict:"sede,dni"}));
+  var Z={Contactado:["Volvió",[]],"Sin contactar":["Volvió solo",[]]},R=[];
+  g.salen.forEach(function(x){if(Z[x.estado])Z[x.estado][1].push(x.id);else R.push(x.id)});
+  for(var k in Z)for(var a of ch(Z[k][1],100))await run(sb.from("sleepers").update({estado:Z[k][0],frecuperado:hoy,activo:false}).in("id",a));
+  for(var a of ch(R,100))await run(sb.from("sleepers").update({activo:false}).in("id",a))}
  saving=false;if(err){toast("Hubo un error: "+err);return}
  closeAll();await cargarS();toast("Lista cargada")}
 /* estadísticas */
