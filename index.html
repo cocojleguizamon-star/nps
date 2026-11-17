@@ -62,6 +62,12 @@ a.btn{text-decoration:none;display:inline-block}
 #login .err{color:#c00000;font-size:13px;margin-top:10px;min-height:18px}
 #login button{width:100%;margin-top:12px}
 @media(max-width:600px){.g2{grid-template-columns:1fr}.pts{grid-template-columns:repeat(6,1fr)}}
+.tabs{background:#111;display:flex;gap:0;padding:0 12px;flex-wrap:wrap}
+.tabs button{border:0;border-radius:0;background:transparent;color:#aaa;padding:11px 18px;border-bottom:3px solid transparent}
+.tabs button.on{color:#fff;border-bottom-color:#fff}
+.res{background:#f4f4f4;border:1px solid var(--line);border-radius:4px;padding:10px;margin-top:10px;font-size:13px}
+.res b{font-size:15px}
+#vS[hidden],#vN[hidden]{display:none!important}
 </style></head><body>
 
 <div id="login" hidden><div class="box" id="boxLogin">
@@ -86,15 +92,22 @@ a.btn{text-decoration:none;display:inline-block}
 <header>
 <div class="logo">MEGATLON</div><div class="sede" id="sedeTxt"></div><div class="sp"></div>
 <button id="bPush" onclick="activarAvisos()" hidden>Activar avisos</button>
-<button onclick="openStats()">Estadísticas</button>
+<button onclick="bStats()">Estadísticas</button>
 <button onclick="openData()">Datos y Excel</button>
-<button class="pri" onclick="openCase()">+ Nuevo caso</button>
+<button class="pri" id="bNuevo" onclick="openCase()">+ Nuevo caso</button><button class="pri" id="bCarga" onclick="openCarga()" hidden>Cargar sleepers</button>
 <button onclick="salir()">Salir</button>
 </header>
-<main>
+<div class="tabs"><button id="tN" class="on" onclick="setV('N')">NPS · pasivos y detractores</button><button id="tS" onclick="setV('S')">Sleepers</button></div>
+<main id="vN">
 <div class="kpis" id="kpis"></div>
 <div class="bar"><input id="q" placeholder="Buscar socio, mail o reclamo…" oninput="render()"><select id="fSede" onchange="render()" hidden></select></div>
 <div class="tablewrap"><table><thead><tr><th>Puntaje</th><th>Socio</th><th class="cSede">Sede</th><th>Tipo</th><th>Encuesta</th><th>Zona</th><th>2ª probable</th><th>Estado</th><th>Alerta</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty" hidden>No hay casos para mostrar. Tocá <b>+ Nuevo caso</b> para cargar el primero.</div></div>
+</main>
+<main id="vS" hidden>
+  <div class="kpis" id="kpisS"></div>
+  <div class="bar"><input id="qs" placeholder="Buscar socio o DNI…" oninput="renderS()"><select id="fSedeS" onchange="renderS()" hidden></select><select id="fTramo" onchange="renderS()"><option value="">Todos los tramos</option><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select></div>
+  <div class="tablewrap"><table style="min-width:760px"><thead><tr><th>Socio</th><th class="cSede">Sede</th><th>Tramo</th><th>En lista desde</th><th>Fin contrato</th><th>Último contacto</th><th>Estado</th></tr></thead><tbody id="rowsS"></tbody></table><div id="emptyS" class="empty" hidden>No hay sleepers para mostrar. Tocá <b>Cargar sleepers</b> para sumar la lista de tu sede.</div></div>
+  <div class="mute" id="cntS" style="margin-top:8px"></div>
 </main>
 <div class="shade" id="shade" onclick="closeAll()"></div>
 
@@ -141,6 +154,32 @@ a.btn{text-decoration:none;display:inline-block}
 </div></div>
 <div class="panel" id="ps" style="width:min(820px,100%)"><div class="ph"><span>Estadísticas de mejora</span><button onclick="closeAll()">Cerrar</button></div>
 <div class="pb" id="statsBody"></div></div>
+<div class="panel" id="psl"><div class="ph"><span id="slT">Sleeper</span><button onclick="closeAll()">Cerrar</button></div>
+<div class="pb">
+ <div class="mute" id="slInfo"></div>
+ <div class="g2"><div><label>Celular</label><input id="slCel" placeholder="11 5555 1234"></div><div><label>Mail</label><input id="slMail" type="email"></div></div>
+ <div class="help">Celular con característica, sin 0 ni 15. Lo copiás de la ficha del socio.</div>
+ <h4>Contactar para que vuelva</h4>
+ <div class="msg" id="slMsg"></div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn pri" id="slBw" target="_blank" rel="noopener">Abrir WhatsApp</a><a class="btn" id="slBm" target="_blank" rel="noopener">Abrir en Outlook</a><button onclick="copy(slMsg().mail)">Copiar texto</button></div>
+ <div class="help">El mensaje queda listo y lo enviás vos.</div>
+ <h4>Seguimiento</h4>
+ <div class="g2"><div><label>Estado</label><select id="slEst"></select></div><div><label>Canal</label><select id="slCan"><option value="">—</option><option>WhatsApp</option><option>Llamado</option><option>Mail</option><option>En persona</option></select></div></div>
+ <div class="g2"><div><label>Fecha de contacto</label><input type="date" id="slFc"></div></div>
+ <label>Qué respondió / motivo</label><textarea id="slNota" placeholder="Ej.: se lesionó, cambió de horario, problema con la cuota…"></textarea>
+ <div class="help">Cuando vuelvas a cargar la lista del tablero, si el socio ya no figura como sleeper pasa solo a Volvió.</div>
+</div>
+<div class="pf"><button onclick="slContactado()">Marcar contactado hoy</button><button class="pri" onclick="saveSl()">Guardar</button></div></div>
+
+<div class="panel" id="pci" style="width:min(640px,100%)"><div class="ph"><span>Cargar sleepers</span><button onclick="closeAll()">Cerrar</button></div>
+<div class="pb">
+ <div id="ciSedeBox"><label>Sede</label><select id="ciSd"></select></div>
+ <label>Qué lista es</label><select id="ciTr"><option value="">Todos los sleepers (recomendado)</option><option value="30">Solo Sleepers 30 días</option><option value="60">Solo Sleepers 60 días</option><option value="90">Solo Sleepers 90 días</option></select>
+ <div class="help"><b>Paso a paso:</b> en Power BI, página <b>Listado Bases</b>, solapa <b>Sleepers</b>: filtrá tu sede y elegí el tipo de sleeper. Seleccioná las filas de la tabla (clic en la primera, Shift + clic en la última), Ctrl + C y pegá acá. Si Power BI te deja exportar, también sirve el CSV.<br>Cargá siempre primero <b>Todos</b>: así la app detecta quién volvió. Si querés registrar el tramo, después cargá cada tramo por separado.</div>
+ <label>Pegá la lista</label><textarea id="ciTx" style="min-height:170px" placeholder="Sucursal, DNI, Apellido, Nombre, Fecha documento, Fin contrato…"></textarea>
+ <button class="pri" onclick="ciPrev()" style="margin-top:8px">Revisar lista</button>
+ <div id="ciRes"></div>
+</div></div>
 <div class="toast" id="toast"></div>
 </div>
 
@@ -201,7 +240,8 @@ async function abrirApp(){
  $("sedeTxt").textContent=me.rol==="regional"?"Vista regional":"Sede "+me.sede;
  if(me.rol==="regional"){$("fSede").hidden=false;$("fSede").innerHTML='<option value="">Todas las sedes</option>'+S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")}
  document.querySelectorAll(".cSede").forEach(function(e){e.style.display=me.rol==="regional"?"":"none"});
- await cargar();initPush()}
+ $("fSedeS").hidden=me.rol!=="regional";$("fSedeS").innerHTML=$("fSede").innerHTML;
+ await cargar();await cargarS();initPush()}
 async function cargar(){var r=await sb.from("casos").select("*").order("fecha",{ascending:false});
  if(r.error){toast("No se pudieron cargar los casos");return}S.cases=r.data||[];render()}
 
@@ -232,7 +272,7 @@ function prev(){if(!me)return;var m=msgs();$("msgPrev").textContent=m.mail;var m
 function copy(t){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Copiado")},fb)}else fb();function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast("Copiado")}catch(e){toast("No se pudo copiar")}a.remove()}}
 function copyMsg(){copy(msgs().mail)}
 function shade(on){$("shade").className="shade"+(on?" open":"")}
-function closeAll(){["pc","pd","ps"].forEach(function(i){$(i).className="panel"});shade(false)}
+function closeAll(){["pc","pd","ps","psl","pci"].forEach(function(i){$(i).className="panel"});shade(false)}
 var F=["fecha","cant","porque","reclamo","socio","nsocio","cel","mail","estado","fmejora","mejora","notas","aviso","p2","f2","zona","frecontacto","recontacto"];
 function openCase(id){cur=id||null;var c=S.cases.filter(function(x){return x.id===id})[0]||{};
  $("whBox").style.display=id?"none":"block";$("wh").value="";
@@ -318,5 +358,102 @@ async function guardarPerfil(){var n=$("pNom").value.trim(),c=$("pCar").value.tr
 function openData(){$("pd").className="panel open";shade(true)}
 function copyTSV(){var rows=(window._list||[]).map(function(x){return x.c}).sort(function(a,b){return(a.fecha||"").localeCompare(b.fecha||"")}).map(function(c){return[c.sede,fmt(c.fecha),c.socio,c.nsocio,c.mail,c.cel,c.puntaje,c.cant,c.porque,c.reclamo,c.estado,c.mejora,fmt(c.fmejora),c.aviso,c.p2,fmt(c.f2),c.notas,c.zona,fmt(c.frecontacto),c.recontacto].map(function(v){return String(v==null?"":v).replace(/[\t\r\n]+/g," ")}).join("\t")});
  if(!rows.length){toast("No hay casos");return}copy(rows.join("\n"));toast(rows.length+" casos copiados. Pegá en el Excel")}
+/* ---------- sleepers ---------- */
+var vista="N",fs2="",slCur=null,imp=null;
+var EST=["Sin contactar","Contactado","Volvió","Volvió solo","No vuelve"];
+function setV(v){vista=v;$("vN").hidden=v!=="N";$("vS").hidden=v!=="S";$("tN").className=v==="N"?"on":"";$("tS").className=v==="S"?"on":"";$("bNuevo").hidden=v!=="N";$("bCarga").hidden=v!=="S";if(v==="S")renderS()}
+function bStats(){if(vista==="S")openStatsS();else openStats()}
+function cap(s){return String(s||"").toLowerCase().replace(/(^|\s)\S/g,function(c){return c.toUpperCase()})}
+async function fetchAll(t){var o=[],i=0;for(;;){var r=await sb.from(t).select("*").order("id").range(i,i+999);if(r.error)return null;o=o.concat(r.data);if(r.data.length<1000)break;i+=1000}return o}
+async function cargarS(){var d=await fetchAll("sleepers");if(d===null){toast("No se pudieron cargar los sleepers");return}S.sl=d;renderS()}
+function slVis(){var f=$("fSedeS").value;return(S.sl||[]).filter(function(x){return!f||x.sede===f})}
+function volvio(x){return x.estado==="Volvió"||x.estado==="Volvió solo"}
+function setFS(f){fs2=(fs2===f?"":f);renderS()}
+function renderS(){if(!me)return;var base=slVis(),n={};EST.forEach(function(e){n[e]=0});base.forEach(function(x){n[x.estado]=(n[x.estado]||0)+1});
+ var K=[["","Todos",base.length],["Sin contactar","Sin contactar",n["Sin contactar"]],["Contactado","Contactados",n["Contactado"]],["V","Volvieron",n["Volvió"]+n["Volvió solo"]],["No vuelve","No vuelve",n["No vuelve"]]];
+ $("kpisS").innerHTML=K.map(function(k){return'<div class="kpi'+(fs2===k[0]?" on":"")+'" onclick="setFS(\''+k[0]+'\')"><b>'+k[2]+'</b><span>'+k[1]+'</span></div>'}).join("");
+ var q=$("qs").value.toLowerCase(),tr=$("fTramo").value,reg=me.rol==="regional";
+ var list=base.filter(function(x){if(fs2==="V"){if(!volvio(x))return false}else if(fs2&&x.estado!==fs2)return false;if(tr&&x.tramo!==tr)return false;return!q||((x.apellido||"")+" "+(x.nombre||"")+" "+x.dni).toLowerCase().indexOf(q)>=0});
+ var rk={"Sin contactar":0,"Contactado":1};
+ list.sort(function(a,b){var ra=rk[a.estado]!=null?rk[a.estado]:2,rb=rk[b.estado]!=null?rk[b.estado]:2;return ra-rb||(a.tramo||"99").localeCompare(b.tramo||"99")||(a.apellido||"").localeCompare(b.apellido||"")});
+ var cl={"Sin contactar":"v","Contactado":"f","Volvió":"n","Volvió solo":"n"};
+ $("rowsS").innerHTML=list.slice(0,600).map(function(x){return'<tr class="row" onclick="openSl(\''+x.id+'\')"><td><b>'+esc(x.apellido)+(x.nombre?", "+esc(cap(x.nombre)):"")+'</b><div class="mute">DNI '+esc(x.dni)+'</div></td><td class="cSede"'+(reg?"":' style="display:none"')+'>'+esc(x.sede)+'</td><td>'+(x.tramo?x.tramo+" días":"–")+'</td><td>'+fmt(x.primera_vez)+'</td><td>'+fmt(x.fin_contrato)+'</td><td>'+(x.fcontacto?fmt(x.fcontacto)+(x.canal?" · "+esc(x.canal):""):"–")+'</td><td><span class="al '+(cl[x.estado]||"o")+'">'+esc(x.estado)+'</span></td></tr>'}).join("");
+ $("emptyS").hidden=list.length>0;$("cntS").textContent=list.length>600?"Mostrando 600 de "+list.length+". Usá el buscador o los filtros.":""}
+/* contacto */
+function slMsg(){var x=(S.sl||[]).filter(function(y){return y.id===slCur})[0]||{},sd=x.sede||me.sede,n=cap((x.nombre||"").split(" ")[0]);
+ return{asunto:"Te extrañamos en Megatlon "+sd,
+ mail:"Hola "+n+",\n\nSoy "+me.nombre+", "+me.cargo+" de Megatlon "+sd+". Hace un tiempo que no te vemos por el club y quería saber cómo estás y si hay algo en lo que podamos ayudarte o mejorar para que vuelvas a entrenar con ganas.\n\nTe esperamos. Cualquier cosa, escribime por acá.\n"+me.nombre,
+ wa:"Hola "+n+", te escribe "+me.nombre+" de Megatlon "+sd+". Hace un tiempo que no te vemos y quería saber cómo estás y si podemos ayudarte en algo para que vuelvas a entrenar. ¡Te esperamos!"}}
+function slPrev(){if(!me||!slCur)return;var m=slMsg(),mail=$("slMail").value.trim(),w=nrm($("slCel").value);$("slMsg").textContent=m.mail;
+ $("slBm").href=mail?"https://outlook.office.com/mail/deeplink/compose?to="+encodeURIComponent(mail)+"&subject="+encodeURIComponent(m.asunto)+"&body="+encodeURIComponent(m.mail):"#";
+ $("slBw").href=w?"https://wa.me/"+w+"?text="+encodeURIComponent(m.wa):"#";$("slBm").style.opacity=mail?1:.4;$("slBw").style.opacity=w?1:.4}
+["slCel","slMail"].forEach(function(i){$(i).addEventListener("input",slPrev)});
+function openSl(id){slCur=id;var x=S.sl.filter(function(y){return y.id===id})[0];if(!x)return;
+ $("slT").textContent=(x.apellido||"")+(x.nombre?", "+cap(x.nombre):"");
+ $("slInfo").textContent="DNI "+x.dni+" · "+x.sede+(x.tramo?" · sleeper "+x.tramo+" días":"")+" · en lista desde "+fmt(x.primera_vez)+(x.fin_contrato?" · contrato hasta "+fmt(x.fin_contrato):"")+(x.frecuperado?" · volvió el "+fmt(x.frecuperado):"");
+ $("slEst").innerHTML=EST.map(function(e){return'<option>'+e+'</option>'}).join("");$("slEst").value=x.estado;
+ $("slCel").value=x.cel||"";$("slMail").value=x.mail||"";$("slCan").value=x.canal||"";$("slFc").value=x.fcontacto||"";$("slNota").value=x.nota||"";
+ slPrev();$("psl").className="panel open";shade(true)}
+async function saveSl(){if(saving||!slCur)return;var e=$("slEst").value,hoy=new Date().toISOString().slice(0,10),x=S.sl.filter(function(y){return y.id===slCur})[0];
+ var row={estado:e,canal:$("slCan").value||null,fcontacto:$("slFc").value||null,nota:$("slNota").value.trim()||null,cel:$("slCel").value.trim()||null,mail:$("slMail").value.trim()||null};
+ if(e==="Contactado"&&!row.fcontacto)row.fcontacto=hoy;
+ if(volvio({estado:e})){if(!x.frecuperado)row.frecuperado=hoy;row.activo=false}else{row.frecuperado=null;row.activo=true}
+ saving=true;var r=await sb.from("sleepers").update(row).eq("id",slCur);saving=false;
+ if(r.error){toast("No se pudo guardar: "+r.error.message);return}
+ closeAll();await cargarS();toast("Guardado")}
+function slContactado(){$("slEst").value="Contactado";if(!$("slFc").value)$("slFc").value=new Date().toISOString().slice(0,10);saveSl()}
+/* carga de la lista */
+function openCarga(){var reg=me.rol==="regional";$("ciSedeBox").style.display=reg?"block":"none";
+ $("ciSd").innerHTML=reg?S.sedes.map(function(x){return'<option>'+esc(x)+'</option>'}).join(""):'<option>'+esc(me.sede)+'</option>';
+ if(reg&&$("fSedeS").value)$("ciSd").value=$("fSedeS").value;$("ciTx").value="";$("ciRes").innerHTML="";imp=null;$("pci").className="panel open";shade(true)}
+function pFecha(s){var m=String(s||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+"-"+("0"+m[2]).slice(-2)+"-"+("0"+m[1]).slice(-2):null}
+function parseSl(t){var o={},n=0;t.split(/\r?\n/).forEach(function(l){l=l.trim();if(!l)return;
+ var tk=l.split("\t");if(tk.length<3)tk=l.split(/;|\s{2,}/);if(tk.length<3&&l.indexOf(",")>=0)tk=l.split(",");
+ tk=tk.map(function(x){return x.replace(/^"|"$/g,"").trim()}).filter(function(x){return x!==""});
+ var i=-1;for(var k=0;k<tk.length;k++){var d=tk[k].replace(/\./g,"");if(/^\d{6,9}$/.test(d)&&tk[k].indexOf("/")<0){i=k;tk[k]=d;break}}
+ if(i<0)return;var fe=tk.filter(function(x){return/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x)}).map(pFecha),dni=tk[i],ap=tk[i+1]||"",no=tk[i+2]||"";
+ if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(no))no="";if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(ap))ap="";
+ if(!o[dni]){n++;o[dni]={dni:dni,apellido:ap,nombre:no,fin:fe.length>1?fe[fe.length-1]:null}}});
+ return Object.keys(o).map(function(k){return o[k]})}
+function ciPrev(){var L=parseSl($("ciTx").value),sd=me.rol==="regional"?$("ciSd").value:me.sede,tr=$("ciTr").value;
+ if(!L.length){$("ciRes").innerHTML='<div class="res">No encontré socios en lo que pegaste. Tiene que haber una columna con el DNI.</div>';imp=null;return}
+ var ex={};(S.sl||[]).filter(function(x){return x.sede===sd}).forEach(function(x){ex[x.dni]=x});
+ var inL={};L.forEach(function(x){inL[x.dni]=1});
+ var nuevos=L.filter(function(x){return!ex[x.dni]}),siguen=L.filter(function(x){return ex[x.dni]&&!volvio(ex[x.dni])}).map(function(x){return ex[x.dni]}),
+ recaen=L.filter(function(x){return ex[x.dni]&&volvio(ex[x.dni])}).map(function(x){return ex[x.dni]}),
+ salen=tr?[]:Object.keys(ex).filter(function(d){return!inL[d]&&ex[d].activo}).map(function(d){return ex[d]}),
+ vc=salen.filter(function(x){return x.estado==="Contactado"}),vs=salen.filter(function(x){return x.estado==="Sin contactar"});
+ imp={sd:sd,tr:tr,nuevos:nuevos,siguen:siguen,recaen:recaen,salen:salen};
+ var act=Object.keys(ex).filter(function(d){return ex[d].activo}).length,warn=(!tr&&act>=20&&L.length<act*.5)?'<div style="color:#c00000;font-weight:700;margin-top:8px">Atención: esta lista tiene la mitad de socios que la anterior ('+act+'). Si es una lista parcial, elegí el tramo arriba; si no, '+salen.length+' socios quedarían como "volvieron".</div>':"";
+ $("ciRes").innerHTML='<div class="res"><b>'+L.length+' socios en la lista · '+esc(sd)+'</b><br>Nuevos: '+nuevos.length+'<br>Siguen sin venir: '+siguen.length+(recaen.length?'<br>Volvieron a ser sleepers: '+recaen.length:'')+(tr?'<br><span class="mute">Lista de un solo tramo: no se marca quién volvió.</span>':'<br>Ya no figuran (volvieron a entrenar): '+salen.length+' ('+vc.length+' contactados por vos, '+vs.length+' solos)')+warn+'</div><button class="pri" onclick="ciGo()" style="margin-top:10px">Confirmar carga</button>'}
+async function ciGo(){if(!imp||saving)return;saving=true;var I=imp,hoy=new Date().toISOString().slice(0,10),err=null;
+ async function run(q){var r=await q;if(r.error&&!err)err=r.error.message}
+ function ch(a,n){var o=[];for(var i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o}
+ for(var a of ch(I.nuevos,200))await run(sb.from("sleepers").insert(a.map(function(x){return{sede:I.sd,dni:x.dni,apellido:x.apellido,nombre:x.nombre,tramo:I.tr||null,fin_contrato:x.fin,primera_vez:hoy,ultima_vez:hoy}})));
+ var up={ultima_vez:hoy,activo:true};if(I.tr)up.tramo=I.tr;
+ for(var a of ch(I.siguen.map(function(x){return x.id}),100))await run(sb.from("sleepers").update(up).in("id",a));
+ var up2=Object.assign({estado:"Sin contactar",frecuperado:null},up);
+ for(var a of ch(I.recaen.map(function(x){return x.id}),100))await run(sb.from("sleepers").update(up2).in("id",a));
+ var G={Contactado:["Volvió",[]],"Sin contactar":["Volvió solo",[]]},R=[];
+ I.salen.forEach(function(x){if(G[x.estado])G[x.estado][1].push(x.id);else R.push(x.id)});
+ for(var k in G)for(var a of ch(G[k][1],100))await run(sb.from("sleepers").update({estado:G[k][0],frecuperado:hoy,activo:false}).in("id",a));
+ for(var a of ch(R,100))await run(sb.from("sleepers").update({activo:false}).in("id",a));
+ saving=false;if(err){toast("Hubo un error: "+err);return}
+ closeAll();await cargarS();toast("Lista cargada")}
+/* estadísticas */
+function filaS(k,cs){var c1=cs.filter(function(x){return x.estado==="Sin contactar"}),ct=cs.filter(function(x){return x.estado==="Contactado"}),v=cs.filter(function(x){return x.estado==="Volvió"}),vs=cs.filter(function(x){return x.estado==="Volvió solo"}),nv=cs.filter(function(x){return x.estado==="No vuelve"}),
+ cont=ct.length+v.length+nv.filter(function(x){return x.fcontacto}).length,sin=c1.length+vs.length+nv.filter(function(x){return!x.fcontacto}).length,
+ dd=v.filter(function(x){return x.fcontacto&&x.frecuperado}).map(function(x){return Math.round((new Date(x.frecuperado)-new Date(x.fcontacto))/864e5)});
+ return[k,cs.length,c1.length,cont,v.length,vs.length,cont?Math.round(v.length*100/cont)+"%":"-",sin?Math.round(vs.length*100/sin)+"%":"-",dd.length?Math.round(dd.reduce(function(a,b){return a+b},0)/dd.length):"-"]}
+function tablaS(tit,o){var H=["","Sleepers","Sin contactar","Contactados","Volvieron tras contacto","Volvieron solos","Recupero con contacto","Recupero sin contacto","Días a volver"];
+ var rows=Object.keys(o).sort().map(function(k){return filaS(k,o[k])});
+ return'<h4>'+tit+'</h4><div class="tablewrap"><table style="min-width:720px"><thead><tr>'+H.map(function(h){return'<th>'+h+'</th>'}).join("")+'</tr></thead><tbody>'+rows.map(function(r){return'<tr>'+r.map(function(v,i){return i?'<td>'+v+'</td>':'<td><b>'+esc(v)+'</b></td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div>'}
+function grpS(L,f){var o={};L.forEach(function(x){var k=(f==="tramo"?(x.tramo?x.tramo+" días":""):x[f])||"(sin dato)";(o[k]=o[k]||[]).push(x)});return o}
+function openStatsS(){var L=slVis();
+ var h='<p><b>Total:</b> '+L.length+' sleepers cargados.</p>'+tablaS("Total",{"Todos":L});
+ if(me.rol==="regional")h+=tablaS("Por sede",grpS(L,"sede"));
+ h+=tablaS("Por tramo",grpS(L,"tramo"))+tablaS("Por canal de contacto",grpS(L.filter(function(x){return x.canal}),"canal"));
+ h+='<div class="help" style="margin-top:12px">Contactados: a los que les escribiste o llamaste. Volvieron tras contacto: ya no figuran como sleepers después de que los contactaste. Volvieron solos: se recuperaron sin que los contactes. Recupero con contacto = volvieron tras contacto sobre contactados; recupero sin contacto = volvieron solos sobre no contactados. Si el primero supera al segundo, contactar funciona. Días a volver: desde el contacto hasta que volvió.</div>';
+ $("statsBody").innerHTML=h;$("ps").className="panel open";shade(true)}
 init();
 </script></body></html>
